@@ -51,8 +51,8 @@ class LoginRequest(BaseModel):
 
 @app.post("/api/auth/login")
 async def login(req: LoginRequest):
-    expected_user = os.getenv("ADMIN_USERNAME", "admin")
-    expected_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+    expected_user = os.getenv("ADMIN_USERNAME", "clinica_espaco_interativo_reabilitare")
+    expected_pass = os.getenv("ADMIN_PASSWORD", "admin")
     expected_token = os.getenv("ADMIN_TOKEN", "post-clinics-mvp-secure-token")
     
     if req.username == expected_user and req.password == expected_pass:
