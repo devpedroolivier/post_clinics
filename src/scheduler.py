@@ -1,0 +1,136 @@
+"""
+POST Clinics - Appointment Reminder Scheduler
+
+Runs in a loop, checking for upcoming appointments and sending
+WhatsApp reminders via Z-API at 24h and 3h before the appointment.
+"""
+
+import time
+import logging
+import os
+import sys
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+BR_TZ = ZoneInfo("America/Sao_Paulo")
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from sqlmodel import Session, select
+from src.database import engine, Appointment, Patient, create_db_and_tables
+from src.zapi import send_message
+from src.config import CLINIC_CONFIG
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [Scheduler] %(levelname)s: %(message)s"
+)
+logger = logging.getLogger("PostClinics.Scheduler")
+
+# Configuration
+CHECK_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_INTERVAL", 600))  # Default: 10 min
+CLINIC_NAME = CLINIC_CONFIG["name"]
+ASSISTANT_NAME = CLINIC_CONFIG["assistant_name"]
+
+
+def get_reminder_message_24h(patient_name: str, appt_datetime: datetime, service: str) -> str:
+    """Generate the 24h reminder message."""
+    date_str = appt_datetime.strftime("%d/%m/%Y")
+    time_str = appt_datetime.strftime("%H:%M")
+    return (
+        f"Olá {patient_name}! 😊\n\n"
+        f"Aqui é a {ASSISTANT_NAME}, da {CLINIC_NAME}.\n\n"
+        f"Passando para lembrar que você tem uma consulta *amanhã*:\n\n"
+        f"📅 Data: {date_str}\n"
+        f"⏰ Horário: {time_str}\n"
+        f"🏥 Serviço: {service}\n\n"
+        f"Caso precise cancelar ou reagendar, por favor nos avise com antecedência.\n\n"
+        f"Até amanhã! 🙂"
+    )
+
+
+def get_reminder_message_3h(patient_name: str, appt_datetime: datetime, service: str) -> str:
+    """Generate the 3h reminder message."""
+    time_str = appt_datetime.strftime("%H:%M")
+    return (
+        f"Olá {patient_name}! 😊\n\n"
+        f"Lembrete: sua consulta é *hoje* às *{time_str}*.\n\n"
+        f"🏥 Serviço: {service}\n\n"
+        f"Estamos te esperando! Até logo. 🙂"
+    )
+
+
+def check_and_send_reminders():
+    """Check DB for appointments needing reminders and send them."""
+    now = datetime.now(BR_TZ)
+    logger.info(f"Checking reminders at {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    sent_count = 0
+    
+    with Session(engine) as session:
+        # Query: All confirmed appointments that haven't been fully notified
+        statement = select(Appointment, Patient).join(Patient).where(
+            Appointment.status == "confirmed",
+            Appointment.datetime > now,  # Only future appointments
+        )
+        results = session.exec(statement).all()
+        
+        for appointment, patient in results:
+            time_until = appointment.datetime - now
+            hours_until = time_until.total_seconds() / 3600
+            
+            # --- 24h Reminder ---
+            # Send if between 23h and 25h before appointment
+            if not appointment.notified_24h and 23 <= hours_until <= 25:
+                message = get_reminder_message_24h(patient.name, appointment.datetime, appointment.service)
+                logger.info(f"Sending 24h reminder to {patient.phone} for appt {appointment.id}")
+                
+                success = send_message(patient.phone, message)
+                if success:
+                    appointment.notified_24h = True
+                    session.add(appointment)
+                    session.commit()
+                    sent_count += 1
+                    logger.info(f"✅ 24h reminder sent to {patient.name} ({patient.phone})")
+                else:
+                    logger.warning(f"❌ Failed to send 24h reminder to {patient.phone}")
+            
+            # --- 3h Reminder ---
+            # Send if between 2.5h and 3.5h before appointment
+            if not appointment.notified_3h and 2.5 <= hours_until <= 3.5:
+                message = get_reminder_message_3h(patient.name, appointment.datetime, appointment.service)
+                logger.info(f"Sending 3h reminder to {patient.phone} for appt {appointment.id}")
+                
+                success = send_message(patient.phone, message)
+                if success:
+                    appointment.notified_3h = True
+                    session.add(appointment)
+                    session.commit()
+                    sent_count += 1
+                    logger.info(f"✅ 3h reminder sent to {patient.name} ({patient.phone})")
+                else:
+                    logger.warning(f"❌ Failed to send 3h reminder to {patient.phone}")
+    
+    logger.info(f"Check complete. {sent_count} reminder(s) sent.")
+
+
+def run_scheduler():
+    """Main scheduler loop."""
+    logger.info(f"🚀 Scheduler started. Checking every {CHECK_INTERVAL_SECONDS}s.")
+    logger.info(f"Clinic: {CLINIC_NAME}")
+    
+    create_db_and_tables()
+    
+    while True:
+        try:
+            check_and_send_reminders()
+        except Exception as e:
+            logger.error(f"Error during reminder check: {e}")
+        
+        time.sleep(CHECK_INTERVAL_SECONDS)
+
+
+if __name__ == "__main__":
+    run_scheduler()

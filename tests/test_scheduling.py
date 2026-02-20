@@ -1,0 +1,106 @@
+import sys
+import os
+from datetime import datetime
+import re
+
+# Ensure src is in path
+sys.path.append(os.path.join(os.getcwd()))
+
+# Import UNDECORATED functions from tools (the core logic)
+from src.tools import (
+    _check_availability, 
+    _schedule_appointment, 
+    _get_available_services, 
+    _reschedule_appointment, 
+    _cancel_appointment,
+    get_service_duration
+)
+from src.database import create_db_and_tables, engine, Appointment, Patient
+from sqlmodel import Session, delete
+
+def test_logic():
+    print("--- Testing Scheduling Logic ---")
+    create_db_and_tables()
+    
+    # Clean DB for test
+    with Session(engine) as session:
+        session.exec(delete(Appointment))
+        session.exec(delete(Patient))
+        session.commit()
+
+    # 1. Test Duration Lookup
+    dur = get_service_duration("Odontopediatria (1ª vez)")
+    print(f"Duration 'Odontopediatria (1ª vez)': {dur} (Expected 60)")
+    assert dur == 60
+    
+    dur = get_service_duration("Clínica Geral")
+    print(f"Duration 'Clínica Geral': {dur} (Expected 40)")
+    assert dur == 40
+
+    # 2. Schedule Initial Appointment (09:00 - 09:40)
+    print("\n--- Scheduling 'Clínica Geral' at 09:00 ---")
+    res = _schedule_appointment(name="Test User", phone="123", datetime_str="2025-05-20 09:00", service_name="Clínica Geral")
+    print(res)
+    assert "Agendamento confirmado" in res
+    
+    # Extract ID for later tests
+    match = re.search(r'ID: (\d+)', res)
+    appt_id = int(match.group(1))
+    print(f"Initial Appointment ID: {appt_id}")
+
+    # 3. Check Availability for 60 min service
+    print("\n--- Checking 60min Service Availability ---")
+    slots_60 = _check_availability("2025-05-20", "Odontopediatria (1ª vez)") # 60 min
+    print(slots_60)
+    assert "09:00" not in slots_60
+    assert "09:30" not in slots_60
+    assert "10:00" in slots_60
+    
+    # 4. Check Availability for 40 min service
+    print("\n--- Checking 40min Service Availability ---")
+    slots_40 = _check_availability("2025-05-20", "Clínica Geral") # 40 min
+    print(slots_40)
+    assert "09:00" not in slots_40
+    assert "09:30" not in slots_40
+    assert "10:00" in slots_40
+
+    # 5. Try to Schedule Overlap
+    print("\n--- Trying to Schedule Overlap (09:30) ---")
+    res_fail = _schedule_appointment(name="Fail User", phone="456", datetime_str="2025-05-20 09:30", service_name="Clínica Geral")
+    print(res_fail)
+    assert "conflita" in res_fail
+
+    # 6. Test Reschedule (New Feature)
+    print("\n--- Testing Reschedule (09:00 -> 14:00) ---")
+    res_resched = _reschedule_appointment(appt_id, "2025-05-20 14:00")
+    print(res_resched)
+    assert "reagendado" in res_resched
+    
+    # Verify old slot is free now
+    print("Verifying old slot (09:00) is free...")
+    slots_after_move = _check_availability("2025-05-20", "Clínica Geral")
+    assert "09:00" in slots_after_move
+    
+    # Verify new slot is taken
+    assert "14:00" not in slots_after_move
+
+    # 7. Test Cancel (New Feature)
+    print("\n--- Testing Cancel ---")
+    res_cancel = _cancel_appointment(appt_id)
+    print(res_cancel)
+    assert "cancelado com sucesso" in res_cancel
+    
+    # Verify it's free
+    slots_after_cancel = _check_availability("2025-05-20", "Clínica Geral")
+    assert "14:00" in slots_after_cancel
+
+    # 8. Test Services List
+    print("\n--- Testing Services List ---")
+    svcs = _get_available_services()
+    print(svcs)
+    assert "Odontopediatria" in svcs
+
+    print("\n[PASS] All Tests Passed")
+
+if __name__ == "__main__":
+    test_logic()

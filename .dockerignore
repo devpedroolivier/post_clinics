@@ -1,0 +1,14 @@
+
+.git
+.venv
+__pycache__
+*.pyc
+.env
+*.db
+.openspec
+.gemini
+debug_output.txt
+*.log
+verify_*.py
+inspect_*.py
+test_*.py
