@@ -169,7 +169,7 @@ async def receiver(request: Request):
         session = SQLiteSession(db_path=conversation_db, session_id=session_id)
         
         # Inject patient phone into context so agent can look up appointments
-        agent_input = f"[Telefone do paciente: {phone}]\n{text_content}"
+        agent_input = f"Telefone do paciente: {phone}\n{text_content}"
         
         logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
         
@@ -229,8 +229,10 @@ async def receiver(request: Request):
         # Remove <thought> blocks
         reply_text = re.sub(r'<thought>.*?</thought>', '', reply_text, flags=re.DOTALL)
         
-        # Remove [TOOL_CALL] identifiers if any
-        reply_text = re.sub(r'\[.*?\]', '', reply_text)
+        # Remove specific system tags only (not all brackets)
+        reply_text = re.sub(r'\[TOOL_CALL\]|\[SYSTEM\]|\[FUNCTION\]', '', reply_text)
+        # Remove "Telefone do paciente: XXX" if leaked into response
+        reply_text = re.sub(r'Telefone do paciente:\s*\S+', '', reply_text)
         
         # Clean any residual <function> tags
         reply_text = re.sub(r'<function=.*?>.*?</function>', '', reply_text, flags=re.DOTALL)

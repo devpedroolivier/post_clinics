@@ -30,6 +30,6 @@ Z_API_CONFIG = {
 
 ANTISPAM_CONFIG = {
     "max_messages_per_minute": 10,
-    "cooldown_seconds": 5,
+    "cooldown_seconds": 2,
     "dedup_window_seconds": 300,
 }

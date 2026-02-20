@@ -202,9 +202,12 @@ def _reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
 def _get_available_services() -> str:
     services_list = []
     for s in CLINIC_CONFIG["services"]:
-        note = f" - {s['note']}" if "note" in s else ""
-        services_list.append(f"{s['name']}{note}")
-    return "Serviços disponíveis:\n" + "\n".join(services_list)
+        duration = s["duration"]
+        note = f" ({s['note']})" if "note" in s else ""
+        services_list.append(f"- {s['name']} — {duration} minutos{note}")
+    return "Serviços disponíveis na clínica:\n" + "\n".join(services_list)
+
+WEEKDAYS_PT = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
 
 def _find_patient_appointments(phone: str) -> str:
     """Find all active appointments for a patient by phone number."""
@@ -224,8 +227,9 @@ def _find_patient_appointments(phone: str) -> str:
         
         lines = [f"Agendamentos de {patient.name}:"]
         for appt in appointments:
+            weekday = WEEKDAYS_PT.get(appt.datetime.weekday(), "")
             date_str = appt.datetime.strftime("%d/%m/%Y às %H:%M")
-            lines.append(f"- ID {appt.id}: {date_str} | {appt.service} | Status: {appt.status}")
+            lines.append(f"- ID {appt.id}: {weekday}, {date_str} | {appt.service} | Status: {appt.status}")
         
         return "\n".join(lines)
 
