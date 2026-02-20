@@ -310,21 +310,19 @@ const Dashboard = () => {
               <KPICard label="Taxa de Confirmação" value={`${confirmationRate}%`} />
             </div>
 
-            <div className="card p-4 md:p-6 min-h-[600px] flex flex-col">
-              <div className="flex-1 w-full h-full relative">
-                <FullCalendar
-                  ref={calendarRef}
-                  plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }}
-                  locale="pt-br"
-                  height="100%"
-                  events={events}
-                  eventClick={handleEventClick}
-                  eventContent={renderEventContent}
-                  dayMaxEvents={3}
-                />
-              </div>
+            <div className="card p-4 md:p-6">
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }}
+                locale="pt-br"
+                height="auto"
+                events={events}
+                eventClick={handleEventClick}
+                eventContent={renderEventContent}
+                dayMaxEvents={3}
+              />
             </div>
           </div>
         </div>
