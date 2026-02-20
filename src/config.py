@@ -27,3 +27,9 @@ Z_API_CONFIG = {
     "token": os.environ.get("Z_API_TOKEN"),
     "client_token": os.environ.get("Z_API_CLIENT_TOKEN")
 }
+
+ANTISPAM_CONFIG = {
+    "max_messages_per_minute": 10,
+    "cooldown_seconds": 5,
+    "dedup_window_seconds": 300,
+}

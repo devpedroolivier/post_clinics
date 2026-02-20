@@ -6,9 +6,3 @@ aiosqlite
 requests
 python-multipart
 python-dotenv
-
-fastapi
-uvicorn
-sqlmodel
-aiosqlite
-requests

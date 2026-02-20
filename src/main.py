@@ -70,13 +70,17 @@ async def receiver(request: Request):
     """
     Endpoint request from Z-API.
     Accepts arbitrary JSON and manually extracts fields to be robust against structure variations.
+    Includes anti-spam protection: rate limiting per phone and message deduplication.
     """
     import re
     import json
+    from collections import defaultdict
     from src.tools import (
         _check_availability, _schedule_appointment, _confirm_appointment,
-        _cancel_appointment, _reschedule_appointment, _get_available_services
+        _cancel_appointment, _reschedule_appointment, _get_available_services,
+        _find_patient_appointments
     )
+    from src.config import ANTISPAM_CONFIG
 
     # Map of tool names to their undecorated implementations
     TOOL_MAP = {
@@ -86,6 +90,7 @@ async def receiver(request: Request):
         "cancel_appointment": _cancel_appointment,
         "reschedule_appointment": _reschedule_appointment,
         "get_available_services": _get_available_services,
+        "find_patient_appointments": _find_patient_appointments,
     }
 
     try:
@@ -113,19 +118,65 @@ async def receiver(request: Request):
         if payload.get("fromMe", False) or payload.get("isGroup", False):
              return {"status": "ignored", "reason": "filtered_source"}
 
+        # --- ANTI-SPAM: Message Deduplication ---
+        import time as _time
+        now = _time.time()
+        
+        if not hasattr(app.state, "_seen_messages"):
+            app.state._seen_messages = {}
+        
+        # Clean old entries (older than dedup window)
+        dedup_window = ANTISPAM_CONFIG["dedup_window_seconds"]
+        app.state._seen_messages = {
+            k: v for k, v in app.state._seen_messages.items()
+            if now - v < dedup_window
+        }
+        
+        if message_id in app.state._seen_messages:
+            logger.info(f"[ANTISPAM] Duplicate message ignored: {message_id}")
+            return {"status": "ignored", "reason": "duplicate_message"}
+        
+        app.state._seen_messages[message_id] = now
+        
+        # --- ANTI-SPAM: Rate Limiting per Phone ---
+        if not hasattr(app.state, "_phone_timestamps"):
+            app.state._phone_timestamps = defaultdict(list)
+        
+        max_per_min = ANTISPAM_CONFIG["max_messages_per_minute"]
+        cooldown = ANTISPAM_CONFIG["cooldown_seconds"]
+        
+        # Clean old timestamps (older than 60s)
+        app.state._phone_timestamps[phone] = [
+            ts for ts in app.state._phone_timestamps[phone]
+            if now - ts < 60
+        ]
+        
+        timestamps = app.state._phone_timestamps[phone]
+        
+        if len(timestamps) >= max_per_min:
+            logger.warning(f"[ANTISPAM] Rate limit exceeded for {phone}: {len(timestamps)} msgs/min")
+            return {"status": "ignored", "reason": "rate_limited"}
+        
+        if timestamps and (now - timestamps[-1]) < cooldown:
+            logger.info(f"[ANTISPAM] Cooldown active for {phone}: {now - timestamps[-1]:.1f}s < {cooldown}s")
+            return {"status": "ignored", "reason": "cooldown"}
+        
+        app.state._phone_timestamps[phone].append(now)
+
+        # --- PROCESS MESSAGE ---
         session_id = f"zapi:{phone}"
         conversation_db = os.path.join(DATA_DIR, "conversations.db")
         session = SQLiteSession(db_path=conversation_db, session_id=session_id)
         
-        logger.info(f"Running agent for {phone} (msgId: {message_id}) with input: {text_content}")
+        # Inject patient phone into context so agent can look up appointments
+        agent_input = f"[Telefone do paciente: {phone}]\n{text_content}"
         
-        result = await Runner.run(agent, input=text_content, session=session)
+        logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
+        
+        result = await Runner.run(agent, input=agent_input, session=session)
         logger.info(f"Agent response: {result}")
         
         # --- GROQ/LLAMA 3 WORKAROUND ---
-        # The model sometimes outputs XML-like tool calls instead of native JSON tool_calls.
-        # We detect, parse, execute tools, and feed results back to the agent.
-        
         final_text = result.final_output
         if not isinstance(final_text, str):
             final_text = str(final_text)
@@ -192,6 +243,8 @@ async def receiver(request: Request):
             reply_text = "Desculpe, não entendi. Pode repetir?"
             
         send_success = send_message(phone, reply_text)
+        
+        logger.info(f"[WPP:OUT] phone={phone} success={send_success} reply={reply_text[:100]}...")
         
         status = "processed_and_sent" if send_success else "processed_send_failed"
         

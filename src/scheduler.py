@@ -36,7 +36,7 @@ ASSISTANT_NAME = CLINIC_CONFIG["assistant_name"]
 
 
 def get_reminder_message_24h(patient_name: str, appt_datetime: datetime, service: str) -> str:
-    """Generate the 24h reminder message."""
+    """Generate the 24h reminder message — interactive confirmation."""
     date_str = appt_datetime.strftime("%d/%m/%Y")
     time_str = appt_datetime.strftime("%H:%M")
     return (
@@ -46,8 +46,11 @@ def get_reminder_message_24h(patient_name: str, appt_datetime: datetime, service
         f"📅 Data: {date_str}\n"
         f"⏰ Horário: {time_str}\n"
         f"🏥 Serviço: {service}\n\n"
-        f"Caso precise cancelar ou reagendar, por favor nos avise com antecedência.\n\n"
-        f"Até amanhã! 🙂"
+        f"Poderia confirmar sua presença? Responda:\n"
+        f"✅ *Confirmo* — para confirmar\n"
+        f"🔄 *Reagendar* — para mudar o horário\n"
+        f"❌ *Cancelar* — para cancelar\n\n"
+        f"Caso precise de ajuda, estou aqui! 🙂"
     )
 
 
@@ -70,9 +73,9 @@ def check_and_send_reminders():
     sent_count = 0
     
     with Session(engine) as session:
-        # Query: All confirmed appointments that haven't been fully notified
+        # Query: All confirmed or scheduled appointments that haven't been fully notified
         statement = select(Appointment, Patient).join(Patient).where(
-            Appointment.status == "confirmed",
+            Appointment.status.in_(["confirmed", "scheduled"]),
             Appointment.datetime > now,  # Only future appointments
         )
         results = session.exec(statement).all()

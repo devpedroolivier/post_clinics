@@ -129,15 +129,18 @@ def _confirm_appointment(appointment_id: int) -> str:
     with Session(engine) as session:
         appt = session.get(Appointment, appointment_id)
         if not appt:
-            return "Appointment not found."
-            
-        if appt.status == "cancelled":
+            return "Agendamento não encontrado."
+        
+        if appt.status == "confirmed":
+            return f"Agendamento {appointment_id} já está confirmado."
+        
+        if appt.status in ("scheduled", "cancelled"):
             appt.status = "confirmed"
             session.add(appt)
             session.commit()
-            return f"Appointment {appointment_id} re-confirmed."
-            
-        return f"Appointment {appointment_id} is already {appt.status}."
+            return f"Agendamento {appointment_id} confirmado com sucesso!"
+        
+        return f"Agendamento {appointment_id} está com status '{appt.status}' e não pode ser confirmado."
 
 def _cancel_appointment(appointment_id: int) -> str:
     with Session(engine) as session:
@@ -203,6 +206,30 @@ def _get_available_services() -> str:
         services_list.append(f"{s['name']}{note}")
     return "Serviços disponíveis:\n" + "\n".join(services_list)
 
+def _find_patient_appointments(phone: str) -> str:
+    """Find all active appointments for a patient by phone number."""
+    with Session(engine) as session:
+        patient = session.exec(select(Patient).where(Patient.phone == phone)).first()
+        if not patient:
+            return "Nenhum paciente encontrado com esse telefone."
+        
+        statement = select(Appointment).where(
+            Appointment.patient_id == patient.id,
+            Appointment.status != "cancelled"
+        ).order_by(Appointment.datetime)
+        appointments = session.exec(statement).all()
+        
+        if not appointments:
+            return f"Nenhum agendamento ativo encontrado para {patient.name}."
+        
+        lines = [f"Agendamentos de {patient.name}:"]
+        for appt in appointments:
+            date_str = appt.datetime.strftime("%d/%m/%Y às %H:%M")
+            lines.append(f"- ID {appt.id}: {date_str} | {appt.service} | Status: {appt.status}")
+        
+        return "\n".join(lines)
+
+
 # --- Decorated Tools Implementation (Using Core Logic) ---
 
 @function_tool
@@ -234,3 +261,8 @@ def reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
 def get_available_services(query: str = "") -> str:
     """Get list of available services and their durations. Pass empty string for query."""
     return _get_available_services()
+
+@function_tool
+def find_patient_appointments(phone: str) -> str:
+    """Find all active appointments for a patient by their phone number. Use this to look up appointment IDs before confirming, cancelling, or rescheduling."""
+    return _find_patient_appointments(phone)

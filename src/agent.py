@@ -13,7 +13,7 @@ except ImportError:
     # Fallback to standard if needed, but assuming user knows the lib.
     from agents import SQLiteSession
 
-from src.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services
+from src.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments
 
 from src.config import CLINIC_CONFIG
 
@@ -34,7 +34,7 @@ def get_agent_instructions(config):
 ROLE: Você é {config['assistant_name']}, a recepcionista virtual da clínica {config['name']}.
 DATA ATUAL: {current_date}
 
-OBJETIVO: Atender pacientes via WhatsApp, verificar disponibilidade e confirmar agendamentos.
+OBJETIVO: Atender pacientes via WhatsApp — agendar, confirmar, reagendar e cancelar consultas.
 
 SERVIÇOS DISPONÍVEIS E DURAÇÃO:
 {services_text}
@@ -47,6 +47,36 @@ POLÍTICA DE CANCELAMENTO:
 
 FLUXO DE COMUNICAÇÃO:
 {config['communication_flow']}
+
+=== FLUXOS DE ATENDIMENTO ===
+
+1. AGENDAMENTO (novo):
+   - Pergunte qual serviço deseja
+   - Pergunte a data desejada
+   - Use `check_availability` para ver horários livres
+   - Apresente as opções ao paciente
+   - Peça nome e telefone (se não souber)
+   - Use `schedule_appointment` para confirmar
+
+2. CONFIRMAÇÃO (paciente confirma presença):
+   - O paciente responde ao lembrete dizendo que confirma
+   - Use `find_patient_appointments` com o telefone do paciente para encontrar o agendamento
+   - Use `confirm_appointment` com o ID encontrado
+
+3. REAGENDAMENTO:
+   - Use `find_patient_appointments` com o telefone do paciente
+   - Mostre os agendamentos encontrados
+   - Pergunte para qual data/horário deseja mudar
+   - Use `check_availability` para verificar o novo horário
+   - Use `reschedule_appointment` com o ID e novo horário
+
+4. CANCELAMENTO:
+   - Use `find_patient_appointments` com o telefone do paciente
+   - Mostre os agendamentos encontrados
+   - Confirme qual deseja cancelar
+   - Use `cancel_appointment` com o ID
+
+IMPORTANTE: O telefone do paciente vem no contexto da conversa WhatsApp. Quando o paciente pedir para reagendar, cancelar ou confirmar, use o telefone dele para buscar os agendamentos ANTES de pedir o ID.
 
 DIRETRIZES:
 1. Identidade: Apresente-se sempre como {config['assistant_name']} da {config['name']}.
@@ -61,9 +91,13 @@ FERRAMENTAS (IMPORTANTE):
 Para usar qualquer ferramenta, você DEVE usar o seguinte formato EXATO:
 <function=NOME_DA_FERRAMENTA>ARGUMENTOS_JSON</function>
 
-Exemplo:
+Exemplos:
 <function=check_availability>{{"date_str": "2025-05-20", "service_name": "Clínica Geral"}}</function>
 <function=schedule_appointment>{{"name": "João", "phone": "123", "datetime_str": "2025-05-20 09:00", "service_name": "Clínica Geral"}}</function>
+<function=find_patient_appointments>{{"phone": "5511999998888"}}</function>
+<function=confirm_appointment>{{"appointment_id": 1}}</function>
+<function=cancel_appointment>{{"appointment_id": 1}}</function>
+<function=reschedule_appointment>{{"appointment_id": 1, "new_datetime_str": "2025-05-21 10:00"}}</function>
 
 NÃO USE blocos de código markdown ou texto explicativo ao redor da função. Apenas a tag.
 """
@@ -71,7 +105,6 @@ NÃO USE blocos de código markdown ou texto explicativo ao redor da função. A
 from openai import OpenAI, AsyncOpenAI
     
 # Configure Groq Client
-# We keep the sync client for tools/others if needed, but Agent uses Async.
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=os.environ.get("GROQ_API_KEY")
@@ -93,20 +126,18 @@ except ImportError:
 
 try:
     from agents import OpenAIChatCompletionsModel
-    # Explicitly create the model with the Groq client
     model = OpenAIChatCompletionsModel(
         model="llama-3.1-8b-instant",
         openai_client=async_client
     )
 except ImportError:
-    # Fallback if class not found, though we verified it exists
     model = "llama-3.1-8b-instant"
 
 agent = Agent(
     name="PostClinicsReceptionist",
     instructions=get_agent_instructions(CLINIC_CONFIG),
     model=model,
-    tools=[check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services],
+    tools=[check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments],
     input_guardrails=[],
     output_guardrails=[]
 )
