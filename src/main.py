@@ -1,6 +1,8 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 import logging
 import os
 from dotenv import load_dotenv
@@ -33,6 +35,30 @@ app.add_middleware(
 @app.get("/api/health")
 async def health_check():
     return {"message": "POST Clinics API is running"}
+
+# --- Basic MVP Auth ---
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    expected_token = os.getenv("ADMIN_TOKEN", "post-clinics-mvp-secure-token")
+    if credentials.credentials != expected_token:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    return credentials.credentials
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/auth/login")
+async def login(req: LoginRequest):
+    expected_user = os.getenv("ADMIN_USERNAME", "admin")
+    expected_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+    expected_token = os.getenv("ADMIN_TOKEN", "post-clinics-mvp-secure-token")
+    
+    if req.username == expected_user and req.password == expected_pass:
+        return {"token": expected_token}
+    raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
 
 @app.on_event("startup")
 def on_startup():
@@ -175,7 +201,7 @@ async def receiver(request: Request):
         logger.error(f"Error processing webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/appointments")
+@app.get("/api/appointments", dependencies=[Depends(verify_token)])
 async def get_appointments():
     """
     Fetch all scheduled appointments for the dashboard.
@@ -208,7 +234,7 @@ class AppointmentCreate(SQLModel):
     datetime: str
     service: str = "Clínica Geral"
 
-@app.post("/api/appointments")
+@app.post("/api/appointments", dependencies=[Depends(verify_token)])
 async def create_appointment(data: AppointmentCreate):
     """
     Manually create an appointment via Dashboard.
@@ -253,7 +279,7 @@ class AppointmentUpdate(SQLModel):
     service: str | None = None
     status: str | None = None
 
-@app.put("/api/appointments/{appointment_id}")
+@app.put("/api/appointments/{appointment_id}", dependencies=[Depends(verify_token)])
 async def update_appointment(appointment_id: int, data: AppointmentUpdate):
     """
     Update an existing appointment.
@@ -296,7 +322,7 @@ async def update_appointment(appointment_id: int, data: AppointmentUpdate):
         
         return {"status": "success", "id": appointment.id}
 
-@app.delete("/api/appointments/{appointment_id}")
+@app.delete("/api/appointments/{appointment_id}", dependencies=[Depends(verify_token)])
 async def delete_appointment(appointment_id: int):
     """
     Delete an appointment.
