@@ -6,7 +6,7 @@ services:
     container_name: postclinics_prod
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8005:8000"
+      - "8005:8000"
     volumes:
       - ./data:/app/data
     env_file:
