@@ -19,7 +19,7 @@ services:
   scheduler:
     build: .
     container_name: postclinics_scheduler
-    command: python src/scheduler.py
+    command: python -m src.scheduler
     restart: unless-stopped
     volumes:
       - ./data:/app/data
