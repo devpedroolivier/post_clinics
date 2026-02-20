@@ -20,7 +20,15 @@ jobs:
         username: ${{ secrets.HOSTINGER_USER }}
         key: ${{ secrets.HOSTINGER_SSH_KEY }}
         script: |
-          cd /path/to/your/project/on/vps || exit 1
+          # Define destination directory
+          APP_DIR="~/post_clinics"
+          
+          # Clone repository if it doesn't exist
+          if [ ! -d "$APP_DIR" ]; then
+            git clone https://github.com/devpedroolivier/post_clinics.git $APP_DIR
+          fi
+          
+          cd $APP_DIR || exit 1
           
           # Pull latest changes (ignoring local changes if any)
           git fetch origin main
