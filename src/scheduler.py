@@ -67,7 +67,8 @@ def get_reminder_message_3h(patient_name: str, appt_datetime: datetime, service:
 
 def check_and_send_reminders():
     """Check DB for appointments needing reminders and send them."""
-    now = datetime.now(BR_TZ)
+    now_aware = datetime.now(BR_TZ)
+    now = now_aware.replace(tzinfo=None)  # SQLite datetimes are naive
     logger.info(f"Checking reminders at {now.strftime('%Y-%m-%d %H:%M:%S')}")
     
     sent_count = 0
