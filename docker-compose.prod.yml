@@ -3,8 +3,10 @@ version: '3'
 services:
   app:
     build: .
-    container_name: noshowai_prod
+    container_name: postclinics_prod
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8005:8000"
     volumes:
       - ./data:/app/data
     env_file:
@@ -30,29 +32,6 @@ services:
       - app-network
     depends_on:
       - app
-
-  nginx:
-    image: nginx:1.15-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/html:/usr/share/nginx/html
-      - ./data/certbot/conf:/etc/letsencrypt
-      - ./data/certbot/www:/var/www/certbot
-    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
-    networks:
-      - app-network
-
-  certbot:
-    image: certbot/certbot
-    restart: unless-stopped
-    volumes:
-      - ./data/certbot/conf:/etc/letsencrypt
-      - ./data/certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 networks:
   app-network:
