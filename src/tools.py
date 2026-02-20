@@ -204,7 +204,7 @@ def _get_available_services() -> str:
     for s in CLINIC_CONFIG["services"]:
         duration = s["duration"]
         note = f" ({s['note']})" if "note" in s else ""
-        services_list.append(f"- {s['name']} — {duration} minutos{note}")
+        services_list.append(f"- {s['name']}{note}")
     return "Serviços disponíveis na clínica:\n" + "\n".join(services_list)
 
 WEEKDAYS_PT = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}

@@ -23,7 +23,7 @@ def get_agent_instructions(config):
     for s in config["services"]:
         duration = s["duration"]
         note = f" ({s['note']})" if "note" in s else ""
-        services_with_duration.append(f"• {s['name']} — {duration} minutos{note}")
+        services_with_duration.append(f"• {s['name']}{note}")
         services_names_only.append(s['name'])
     
     services_formatted = "\n".join(services_with_duration)
