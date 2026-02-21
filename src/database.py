@@ -26,7 +26,7 @@ import os
 DATABASE_FILE = os.path.join(DATA_DIR, "post_clinics.db")
 DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
