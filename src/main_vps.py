@@ -96,6 +96,7 @@ async def receiver(request: Request):
     try:
         payload = await request.json()
         logger.info(f"Received payload: {payload}")
+        print(f"WEBHOOK PAYLOAD RECEIVED: {payload}")
         
         phone = payload.get("phone")
         
@@ -112,10 +113,12 @@ async def receiver(request: Request):
             
         if not phone or not text_content:
             logger.warning(f"Ignored payload (missing phone/text): {payload}")
+            print("WEBHOOK REJECTED: missing_data (phone or text_content is empty)")
             return {"status": "ignored", "reason": "missing_data"}
 
         # Filter out own messages and group messages
         if payload.get("fromMe", False) or payload.get("isGroup", False):
+             print(f"WEBHOOK REJECTED: filtered_source (fromMe={payload.get('fromMe')}, isGroup={payload.get('isGroup')})")
              return {"status": "ignored", "reason": "filtered_source"}
 
         # --- ANTI-SPAM: Message Deduplication ---
@@ -134,6 +137,7 @@ async def receiver(request: Request):
         
         if message_id in app.state._seen_messages:
             logger.info(f"[ANTISPAM] Duplicate message ignored: {message_id}")
+            print(f"WEBHOOK REJECTED: duplicate_message {message_id}")
             return {"status": "ignored", "reason": "duplicate_message"}
         
         app.state._seen_messages[message_id] = now
@@ -155,10 +159,12 @@ async def receiver(request: Request):
         
         if len(timestamps) >= max_per_min:
             logger.warning(f"[ANTISPAM] Rate limit exceeded for {phone}: {len(timestamps)} msgs/min")
+            print(f"WEBHOOK REJECTED: rate_limited for {phone}")
             return {"status": "ignored", "reason": "rate_limited"}
         
         if timestamps and (now - timestamps[-1]) < cooldown:
             logger.info(f"[ANTISPAM] Cooldown active for {phone}: {now - timestamps[-1]:.1f}s < {cooldown}s")
+            print(f"WEBHOOK REJECTED: cooldown for {phone}")
             return {"status": "ignored", "reason": "cooldown"}
         
         app.state._phone_timestamps[phone].append(now)
@@ -168,16 +174,8 @@ async def receiver(request: Request):
         conversation_db = os.path.join(DATA_DIR, "conversations.db")
         session = SQLiteSession(db_path=conversation_db, session_id=session_id)
         
-        # Inject patient profile from Long-Term Memory
-        try:
-            from src.vector_store import get_patient_profile
-            prefs = get_patient_profile(phone)
-        except Exception as e:
-            prefs = ""
-            logger.error(f"Failed to fetch profile: {e}")
-            
         # Inject patient phone into context so agent can look up appointments
-        agent_input = f"Telefone do paciente: {phone}\n{prefs}\n{text_content}"
+        agent_input = f"Telefone do paciente: {phone}\n{text_content}"
         
         logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
         

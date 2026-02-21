@@ -13,7 +13,7 @@ except ImportError:
     # Fallback to standard if needed, but assuming user knows the lib.
     from agents import SQLiteSession
 
-from src.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments
+from src.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base
 
 from src.config import CLINIC_CONFIG
 
@@ -79,8 +79,9 @@ QUANDO O PACIENTE QUISER CANCELAR:
 4. Use cancel_appointment
 5. Mencione: cancelamentos devem ser feitos com 24h de antecedência
 
-QUANDO PERGUNTAREM PREÇO: "Os valores variam por procedimento. Posso agendar uma avaliação para você? 😊"
-QUANDO PERGUNTAREM CONVÊNIO: "Para informações sobre convênios, recomendo ligar diretamente para a clínica."
+QUANDO FIZEREM PERGUNTAS COMPLEXAS (sobre convênio, procedimentos detalhados, preços, regras de retorno, idade mínima, etc):
+1. Use a ferramenta search_knowledge_base com a dúvida do paciente.
+2. Responda baseando-se APENAS nas Referências retornadas pela busca. Nunca invente regras ou informações médicas.
 
 REGRAS:
 - Fale português do Brasil, informal e acolhedor
@@ -98,6 +99,7 @@ FERRAMENTAS — use EXATAMENTE este formato:
 <function=cancel_appointment>{{"appointment_id": 1}}</function>
 <function=reschedule_appointment>{{"appointment_id": 1, "new_datetime_str": "{tomorrow_date} 14:00"}}</function>
 <function=get_available_services>{{"query": ""}}</function>
+<function=search_knowledge_base>{{"query": "aceita plano de saúde?"}}</function>
 
 Quando usar ferramenta, emita APENAS a tag, sem texto extra.
 """
@@ -137,7 +139,7 @@ agent = Agent(
     name="PostClinicsReceptionist",
     instructions=get_agent_instructions(CLINIC_CONFIG),
     model=model,
-    tools=[check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments],
+    tools=[check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base],
     input_guardrails=[],
     output_guardrails=[]
 )

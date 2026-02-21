@@ -4,6 +4,7 @@ from agents import function_tool
 from sqlmodel import Session, select
 from src.database import engine, Appointment, Patient
 from src.config import CLINIC_CONFIG
+from src.vector_store import search_store
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
@@ -270,3 +271,13 @@ def get_available_services(query: str = "") -> str:
 def find_patient_appointments(phone: str) -> str:
     """Find all active appointments for a patient by their phone number. Use this to look up appointment IDs before confirming, cancelling, or rescheduling."""
     return _find_patient_appointments(phone)
+
+@function_tool
+def search_knowledge_base(query: str) -> str:
+    """Search the clinic's knowledge base and FAQs for complex questions about rules, specific procedures, or edge cases. Use this IF and ONLY IF the answer is not already in your system prompt."""
+    results = search_store(query, k=2)
+    if not results:
+        return "Nenhuma informação relevante encontrada na base de conhecimento."
+    
+    docs = [f"Referência {i+1}: {res.page_content.strip()}" for i, res in enumerate(results)]
+    return "\n\n".join(docs)

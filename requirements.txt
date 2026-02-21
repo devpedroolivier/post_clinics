@@ -6,3 +6,8 @@ aiosqlite
 requests
 python-multipart
 python-dotenv
+chromadb
+langchain
+langchain-community
+sentence-transformers
+langchain-text-splitters
