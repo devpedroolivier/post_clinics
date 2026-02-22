@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.vector_store import search_store
+from src.infrastructure.vector_store import search_store
 
 def test_retrieval():
     queries = [

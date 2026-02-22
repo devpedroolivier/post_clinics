@@ -12,7 +12,7 @@ client = AsyncOpenAI(
     api_key=os.environ.get("GROQ_API_KEY")
 )
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+from src.core.config import DATA_DIR
 DB_PATH = os.path.join(DATA_DIR, "conversations.db")
 
 async def summarize_learning(messages_str: str) -> str:
@@ -40,13 +40,12 @@ async def run_learning_loop():
         print("conversations.db not found.")
         return
 
-    from src.vector_store import add_patient_preference
+    from src.infrastructure.vector_store import add_patient_preference
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
-        # Puxando sessões com pelo menos 3 interações (para ter algum contexto)
         cursor.execute("SELECT session_id FROM messages GROUP BY session_id HAVING count(*) >= 3")
         sessions = [r[0] for r in cursor.fetchall()]
         
@@ -60,7 +59,6 @@ async def run_learning_loop():
             learning = await summarize_learning(history_str)
             if learning and learning != "NULL" and "NULL" not in learning:
                 print(f"Extracted learning for {phone}: {learning}")
-                # Store it
                 add_patient_preference(phone, learning)
                 
     except Exception as e:

@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.tools import _schedule_appointment, _reschedule_appointment, _cancel_appointment, _find_patient_appointments
-from src.database import engine, Appointment, Patient
+from src.application.tools import _schedule_appointment, _reschedule_appointment, _cancel_appointment, _find_patient_appointments
+from src.infrastructure.database import engine
+from src.domain.models import Appointment, Patient
 from sqlmodel import Session, select
 
 def setup_dummy_appointment():

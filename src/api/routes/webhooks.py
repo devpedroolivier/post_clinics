@@ -1,0 +1,190 @@
+import re
+import json
+import os
+import logging
+from collections import defaultdict
+import time as _time
+from fastapi import APIRouter, Request, HTTPException
+from agents import Runner, SQLiteSession
+
+from src.core.config import ANTISPAM_CONFIG, DATA_DIR
+from src.application.tools import (
+    _check_availability, _schedule_appointment, _confirm_appointment,
+    _cancel_appointment, _reschedule_appointment, _get_available_services,
+    _find_patient_appointments
+)
+from src.application.agent import agent
+from src.infrastructure.services.zapi import send_message
+
+logger = logging.getLogger("PostClinics.Webhook")
+router = APIRouter(prefix="/webhook", tags=["Webhooks"])
+
+# Map of tool names to their undecorated implementations
+TOOL_MAP = {
+    "check_availability": _check_availability,
+    "schedule_appointment": _schedule_appointment,
+    "confirm_appointment": _confirm_appointment,
+    "cancel_appointment": _cancel_appointment,
+    "reschedule_appointment": _reschedule_appointment,
+    "get_available_services": _get_available_services,
+    "find_patient_appointments": _find_patient_appointments,
+}
+
+# State for rate limiting and dedup (usually attached to app.state, using global here for simplicity or we can attach to router)
+_seen_messages = {}
+_phone_timestamps = defaultdict(list)
+
+@router.post("/zapi")
+async def receiver(request: Request):
+    """
+    Endpoint request from Z-API.
+    Accepts arbitrary JSON and manually extracts fields to be robust against structure variations.
+    Includes anti-spam protection: rate limiting per phone and message deduplication.
+    """
+    global _seen_messages, _phone_timestamps
+    
+    try:
+        payload = await request.json()
+        logger.info(f"Received payload: {payload}")
+        
+        phone = payload.get("phone")
+        
+        # Extract text content
+        text_content = ""
+        text_data = payload.get("text")
+        
+        if isinstance(text_data, dict):
+            text_content = text_data.get("message", "")
+        elif isinstance(text_data, str):
+            text_content = text_data
+            
+        message_id = payload.get("messageId", "unknown")
+            
+        if not phone or not text_content:
+            logger.warning(f"Ignored payload (missing phone/text): {payload}")
+            return {"status": "ignored", "reason": "missing_data"}
+
+        if payload.get("fromMe", False) or payload.get("isGroup", False):
+             return {"status": "ignored", "reason": "filtered_source"}
+
+        now = _time.time()
+        
+        # --- ANTI-SPAM: Message Deduplication ---
+        dedup_window = ANTISPAM_CONFIG["dedup_window_seconds"]
+        _seen_messages = {
+            k: v for k, v in _seen_messages.items()
+            if now - v < dedup_window
+        }
+        
+        if message_id in _seen_messages:
+            logger.info(f"[ANTISPAM] Duplicate message ignored: {message_id}")
+            return {"status": "ignored", "reason": "duplicate_message"}
+        
+        _seen_messages[message_id] = now
+        
+        # --- ANTI-SPAM: Rate Limiting per Phone ---
+        max_per_min = ANTISPAM_CONFIG["max_messages_per_minute"]
+        cooldown = ANTISPAM_CONFIG["cooldown_seconds"]
+        
+        _phone_timestamps[phone] = [
+            ts for ts in _phone_timestamps[phone]
+            if now - ts < 60
+        ]
+        
+        timestamps = _phone_timestamps[phone]
+        
+        if len(timestamps) >= max_per_min:
+            logger.warning(f"[ANTISPAM] Rate limit exceeded for {phone}: {len(timestamps)} msgs/min")
+            return {"status": "ignored", "reason": "rate_limited"}
+        
+        if timestamps and (now - timestamps[-1]) < cooldown:
+            logger.info(f"[ANTISPAM] Cooldown active for {phone}: {now - timestamps[-1]:.1f}s < {cooldown}s")
+            return {"status": "ignored", "reason": "cooldown"}
+        
+        _phone_timestamps[phone].append(now)
+
+        # --- PROCESS MESSAGE ---
+        session_id = f"zapi:{phone}"
+        conversation_db = os.path.join(DATA_DIR, "conversations.db")
+        session = SQLiteSession(db_path=conversation_db, session_id=session_id)
+        
+        # Inject patient profile from Long-Term Memory
+        try:
+            from src.infrastructure.vector_store import get_patient_profile
+            prefs = get_patient_profile(phone)
+        except Exception as e:
+            prefs = ""
+            logger.error(f"Failed to fetch profile: {e}")
+            
+        # Inject patient phone into context so agent can look up appointments
+        agent_input = f"Telefone do paciente: {phone}\n{prefs}\n{text_content}"
+        
+        logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
+        
+        result = await Runner.run(agent, input=agent_input, session=session)
+        logger.info(f"Agent response: {result}")
+        
+        # --- GROQ/LLAMA 3 WORKAROUND ---
+        final_text = result.final_output
+        if not isinstance(final_text, str):
+            final_text = str(final_text)
+        
+        tool_pattern = r'<function=(\w+)>(.*?)</function>'
+        
+        for attempt in range(3):
+            matches = list(re.finditer(tool_pattern, final_text, re.DOTALL))
+            if not matches:
+                break
+                
+            tool_results = []
+            for match in matches:
+                func_name = match.group(1)
+                args_str = match.group(2).strip()
+                logger.info(f"Detected tool call #{attempt+1}: {func_name}({args_str})")
+                
+                if func_name in TOOL_MAP:
+                    try:
+                        kwargs = json.loads(args_str) if args_str else {}
+                        tool_output = TOOL_MAP[func_name](**kwargs)
+                    except json.JSONDecodeError:
+                        tool_output = f"Error: Invalid JSON arguments: {args_str}"
+                    except Exception as e:
+                        tool_output = f"Error executing {func_name}: {e}"
+                else:
+                    tool_output = f"Tool '{func_name}' not available."
+                    
+                logger.info(f"Tool Output: {tool_output}")
+                tool_results.append(f"Tool '{func_name}' returned: {tool_output}")
+            
+            results_summary = "\n".join(tool_results)
+            next_input = f"(SYSTEM: {results_summary}\nBased on these results, respond to the user in Portuguese.)"
+            
+            result = await Runner.run(agent, input=next_input, session=session)
+            final_text = result.final_output
+            if not isinstance(final_text, str):
+                final_text = str(final_text)
+            logger.info(f"Agent follow-up response (attempt {attempt+1}): {final_text}")
+        
+        # --- RESPONSE CLEANUP ---
+        reply_text = final_text
+        if not isinstance(reply_text, str):
+            reply_text = str(reply_text)
+            
+        reply_text = re.sub(r'<thought>.*?</thought>', '', reply_text, flags=re.DOTALL)
+        reply_text = re.sub(r'\[TOOL_CALL\]|\[SYSTEM\]|\[FUNCTION\]', '', reply_text)
+        reply_text = re.sub(r'Telefone do paciente:\s*\S+', '', reply_text)
+        reply_text = re.sub(r'<function=.*?>.*?</function>', '', reply_text, flags=re.DOTALL)
+        reply_text = reply_text.strip()
+        
+        if not reply_text:
+            reply_text = "Desculpe, não entendi. Pode repetir?"
+            
+        send_success = send_message(phone, reply_text)
+        logger.info(f"[WPP:OUT] phone={phone} success={send_success} reply={reply_text[:100]}...")
+        
+        status = "processed_and_sent" if send_success else "processed_send_failed"
+        return {"status": status, "reply": reply_text}
+
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

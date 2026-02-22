@@ -18,10 +18,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agents import Runner, SQLiteSession
-from src.agent import agent
-from src.database import create_db_and_tables, engine, Appointment, Patient
-from src.config import DATA_DIR, CLINIC_CONFIG
-from src.tools import (
+from src.application.agent import agent
+from src.infrastructure.database import create_db_and_tables, engine
+from src.domain.models import Appointment, Patient
+from src.core.config import DATA_DIR, CLINIC_CONFIG
+from src.application.tools import (
     _check_availability, _schedule_appointment, _cancel_appointment,
     _reschedule_appointment, _get_available_services
 )

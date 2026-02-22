@@ -11,10 +11,11 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents import Runner, SQLiteSession
-from src.agent import agent
-from src.database import engine, Appointment, Patient
+from src.application.agent import agent
+from src.infrastructure.database import engine
+from src.domain.models import Appointment, Patient
 from sqlmodel import Session, select
-from src.tools import (
+from src.application.tools import (
     _schedule_appointment, check_availability, schedule_appointment, 
     confirm_appointment, cancel_appointment, reschedule_appointment, 
     get_available_services, find_patient_appointments, search_knowledge_base

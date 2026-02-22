@@ -7,7 +7,7 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents import Runner, SQLiteSession
-from src.agent import agent
+from src.application.agent import agent
 
 async def main():
     print("Initializing Agent Runner...")

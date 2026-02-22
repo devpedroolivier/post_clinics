@@ -2,9 +2,10 @@ from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 from agents import function_tool
 from sqlmodel import Session, select
-from src.database import engine, Appointment, Patient
-from src.config import CLINIC_CONFIG
-from src.vector_store import search_store
+from src.infrastructure.database import engine
+from src.domain.models import Appointment, Patient
+from src.core.config import CLINIC_CONFIG
+from src.infrastructure.vector_store import search_store
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
@@ -211,7 +212,6 @@ def _get_available_services() -> str:
 WEEKDAYS_PT = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
 
 def _find_patient_appointments(phone: str) -> str:
-    """Find all active appointments for a patient by phone number."""
     with Session(engine) as session:
         patient = session.exec(select(Patient).where(Patient.phone == phone)).first()
         if not patient:

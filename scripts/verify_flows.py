@@ -5,7 +5,8 @@ import logging
 import argparse
 import sys
 from sqlmodel import Session, select, create_engine, delete
-from src.database import Appointment, Patient, DATABASE_URL
+from src.domain.models import Appointment, Patient
+from src.infrastructure.database import DATABASE_URL
 from datetime import datetime
 
 # Setup Logging
@@ -59,7 +60,7 @@ class WorkflowTester:
 
         # 2. Clear Conversation Memory
         try:
-            from src.config import DATA_DIR
+            from src.core.config import DATA_DIR
             conv_db_path = os.path.join(DATA_DIR, "conversations.db")
             if os.path.exists(conv_db_path):
                 conv_engine = create_engine(f"sqlite:///{conv_db_path}")

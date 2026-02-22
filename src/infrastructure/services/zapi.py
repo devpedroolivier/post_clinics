@@ -1,14 +1,10 @@
-
 import requests
 import logging
-from src.config import Z_API_CONFIG
+from src.core.config import Z_API_CONFIG
 
 logger = logging.getLogger("PostClinics.ZApi")
 
 def send_message(phone: str, message: str):
-    """
-    Sends a text message using Z-API.
-    """
     instance_id = Z_API_CONFIG.get("instance_id")
     token = Z_API_CONFIG.get("token")
     client_token = Z_API_CONFIG.get("client_token")

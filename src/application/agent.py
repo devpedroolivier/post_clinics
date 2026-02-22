@@ -1,21 +1,13 @@
 import os
 from agents import Agent, Runner
-# Assuming SQLiteSession is available in agents or we use the memory module
-# If "agents" is the package, checking docs usually implies:
-# from agents import Agent, Runner
-# But session management might be implicit or via a specific class.
-# User instruction: "Import Agent, Runner and SQLiteSession directly from agents"
-# Register client with agents library: Moved to after client definition
+
 try:
     from agents import SQLiteSession
 except ImportError:
-    # If it fails, we will check installed package structure later, but sticking to instruction.
-    # Fallback to standard if needed, but assuming user knows the lib.
     from agents import SQLiteSession
 
-from src.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base
-
-from src.config import CLINIC_CONFIG
+from src.application.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base
+from src.core.config import CLINIC_CONFIG
 
 def get_agent_instructions(config):
     services_with_duration = []
@@ -106,19 +98,16 @@ Quando usar ferramenta, emita APENAS a tag, sem texto extra.
 
 from openai import OpenAI, AsyncOpenAI
     
-# Configure Groq Client
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=os.environ.get("GROQ_API_KEY")
 )
 
-# Configure Async Client for the Agent
 async_client = AsyncOpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=os.environ.get("GROQ_API_KEY")
 )
 
-# Register client with agents library and disable tracing
 try:
     from agents import set_default_openai_client, set_tracing_disabled
     set_default_openai_client(client)
@@ -143,7 +132,3 @@ agent = Agent(
     input_guardrails=[],
     output_guardrails=[]
 )
-
-# We can initialize the session storage here or in main
-# Design doc says "Manages context via SQLiteSession"
-# We'll expose it for main.py to use or configure Runner here.

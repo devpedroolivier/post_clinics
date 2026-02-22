@@ -7,7 +7,7 @@ import re
 sys.path.append(os.path.join(os.getcwd()))
 
 # Import UNDECORATED functions from tools (the core logic)
-from src.tools import (
+from src.application.tools import (
     _check_availability, 
     _schedule_appointment, 
     _get_available_services, 
@@ -15,7 +15,8 @@ from src.tools import (
     _cancel_appointment,
     get_service_duration
 )
-from src.database import create_db_and_tables, engine, Appointment, Patient
+from src.infrastructure.database import create_db_and_tables, engine
+from src.domain.models import Appointment, Patient
 from sqlmodel import Session, delete
 
 def test_logic():

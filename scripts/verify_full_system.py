@@ -4,7 +4,7 @@ import json
 from dotenv import load_dotenv
 load_dotenv()
 from datetime import datetime, timedelta
-from src.agent import agent
+from src.application.agent import agent
 from agents import Runner, SQLiteSession
 
 # --- Configuration ---

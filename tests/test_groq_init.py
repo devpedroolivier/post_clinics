@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 try:
-    from src.agent import agent
+    from src.application.agent import agent
     print(f"Successfully initialized agent: {agent.name}")
     print(f"Model: {agent.model}")
     print("Groq configuration seems accepted.")

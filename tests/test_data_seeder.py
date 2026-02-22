@@ -6,7 +6,8 @@ from sqlmodel import Session, select
 # Ensure src is in path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.database import engine, Appointment, Patient, create_db_and_tables
+from src.infrastructure.database import engine, create_db_and_tables
+from src.domain.models import Appointment, Patient
 import logging
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
