@@ -26,7 +26,7 @@ def send_message(phone: str, message: str):
     }
     
     try:
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
         logger.info(f"Message sent to {phone}: {response.json()}")
         return True

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +14,13 @@ from src.api.routes import auth, appointments, webhooks
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("PostClinics")
 
-app = FastAPI(title="POST Clinics MVP")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    logger.info("Database tables verified.")
+    yield
+
+app = FastAPI(title="POST Clinics MVP", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,10 +38,7 @@ app.include_router(webhooks.router)
 async def health_check():
     return {"message": "POST Clinics API is running"}
 
-@app.on_event("startup")
-def on_startup():
-    create_db_and_tables()
-    logger.info("Database tables verified.")
+# Startup logic moved to lifespan context manager above
 
 # Mount static files (Dashboard) - MUST BE LAST
 static_dir = os.path.join(os.getcwd(), "static")

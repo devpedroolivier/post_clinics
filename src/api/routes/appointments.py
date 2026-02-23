@@ -10,13 +10,15 @@ from src.domain.schemas import AppointmentCreate, AppointmentUpdate
 router = APIRouter(prefix="/api/appointments", tags=["Appointments"], dependencies=[Depends(verify_token)])
 
 @router.get("")
-async def get_appointments():
+async def get_appointments(include_cancelled: bool = False):
     """
     Fetch all scheduled appointments for the dashboard.
     Returns appointment data with patient information.
     """
     with Session(engine) as session:
-        statement = select(Appointment, Patient).join(Patient).where(Appointment.status != "cancelled")
+        statement = select(Appointment, Patient).join(Patient)
+        if not include_cancelled:
+            statement = statement.where(Appointment.status != "cancelled")
         results = session.exec(statement).all()
         
         appointments = []

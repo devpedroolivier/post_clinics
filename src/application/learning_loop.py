@@ -26,13 +26,16 @@ async def summarize_learning(messages_str: str) -> str:
     {messages_str}
     """
     
-    completion = await client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.1
-    )
-    
-    return completion.choices[0].message.content.strip()
+    try:
+        completion = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error in summarize_learning: {e}")
+        return "NULL"
 
 async def run_learning_loop():
     print("Running Code Learning Loop...")

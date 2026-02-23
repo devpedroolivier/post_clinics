@@ -1,6 +1,6 @@
 import os
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 import chromadb
 from src.core.config import DATA_DIR
 

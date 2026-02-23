@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 import time as _time
 from fastapi import APIRouter, Request, HTTPException
-from agents import Runner, SQLiteSession
+from agents import Runner, SQLiteSession, RunConfig
 
 from src.core.config import ANTISPAM_CONFIG, DATA_DIR
 from src.application.tools import (
@@ -13,6 +13,7 @@ from src.application.tools import (
     _cancel_appointment, _reschedule_appointment, _get_available_services,
     _find_patient_appointments
 )
+from src.infrastructure.vector_store import search_store
 from src.application.agent import agent
 from src.infrastructure.services.zapi import send_message
 
@@ -64,6 +65,11 @@ TOOL_MAP = {
     "reschedule_appointment": _reschedule_appointment,
     "get_available_services": _get_available_services,
     "find_patient_appointments": _find_patient_appointments,
+    "search_knowledge_base": lambda query="": (
+        "\n\n".join(
+            [f"Referência {i+1}: {r.page_content.strip()}" for i, r in enumerate(results)]
+        ) if (results := search_store(query, k=2)) else "Nenhuma informação relevante encontrada."
+    ),
 }
 
 # State for rate limiting and dedup (usually attached to app.state, using global here for simplicity or we can attach to router)
@@ -160,7 +166,7 @@ async def receiver(request: Request):
         
         logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
         
-        result = await Runner.run(agent, input=agent_input, session=session)
+        result = await Runner.run(agent, input=agent_input, session=session, run_config=RunConfig(max_turns=10))
         logger.info(f"Agent response: {result}")
         
         # --- GROQ/LLAMA 3 WORKAROUND ---

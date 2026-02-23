@@ -1,10 +1,5 @@
 import os
-from agents import Agent, Runner
-
-try:
-    from agents import SQLiteSession
-except ImportError:
-    from agents import SQLiteSession
+from agents import Agent, Runner, ModelSettings
 
 from src.application.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base
 from src.core.config import CLINIC_CONFIG
@@ -139,8 +134,9 @@ except ImportError:
 
 agent = Agent(
     name="PostClinicsReceptionist",
-    instructions=get_agent_instructions(CLINIC_CONFIG),
+    instructions=lambda ctx, agent: get_agent_instructions(CLINIC_CONFIG),
     model=model,
+    model_settings=ModelSettings(temperature=0.3),
     tools=[check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base],
     input_guardrails=[],
     output_guardrails=[]
