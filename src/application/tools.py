@@ -31,15 +31,19 @@ def _check_availability(date_str: str, service_name: str = "Clínica Geral") -> 
     weekday = target_date.weekday() # 0=Mon, 6=Sun
     if weekday == 6: # Sunday
         return "Clínica fechada aos Domingos."
-        
-    start_hour = time(9, 0)
-    if weekday == 5: # Saturday
-        end_hour = time(13, 0)
+    
+    # Get schedule blocks for this service/day
+    schedules = CLINIC_CONFIG.get("schedules", {})
+    
+    if weekday == 5:  # Saturday
+        schedule_key = "saturday"
+    elif service_name in schedules:
+        schedule_key = service_name
     else:
-        end_hour = time(17, 30)
-
-    work_start = datetime.combine(target_date, start_hour)
-    work_end = datetime.combine(target_date, end_hour)
+        schedule_key = "default"
+    
+    schedule = schedules.get(schedule_key, schedules.get("default", {"blocks": [("09:00", "17:30")]}))
+    blocks = schedule["blocks"]
 
     available_slots = []
     
@@ -61,20 +65,28 @@ def _check_availability(date_str: str, service_name: str = "Clínica Geral") -> 
             end = start + timedelta(minutes=appt_duration)
             busy_intervals.append((start, end))
 
-        current_slot = work_start
-        while current_slot + timedelta(minutes=duration_minutes) <= work_end:
-            slot_end = current_slot + timedelta(minutes=duration_minutes)
+        # Generate slots from each time block
+        for block_start_str, block_end_str in blocks:
+            bh, bm = map(int, block_start_str.split(":"))
+            eh, em = map(int, block_end_str.split(":"))
             
-            is_free = True
-            for busy_start, busy_end in busy_intervals:
-                if current_slot < busy_end and slot_end > busy_start:
-                    is_free = False
-                    break
+            work_start = datetime.combine(target_date, time(bh, bm))
+            work_end = datetime.combine(target_date, time(eh, em))
             
-            if is_free:
-                available_slots.append(current_slot.strftime("%H:%M"))
-            
-            current_slot += timedelta(minutes=30)
+            current_slot = work_start
+            while current_slot + timedelta(minutes=duration_minutes) <= work_end:
+                slot_end = current_slot + timedelta(minutes=duration_minutes)
+                
+                is_free = True
+                for busy_start, busy_end in busy_intervals:
+                    if current_slot < busy_end and slot_end > busy_start:
+                        is_free = False
+                        break
+                
+                if is_free:
+                    available_slots.append(current_slot.strftime("%H:%M"))
+                
+                current_slot += timedelta(minutes=30)
 
     if not available_slots:
         return f"Não há horários disponíveis para {service_name} em {date_str}."

@@ -34,10 +34,11 @@ def get_reminder_message_24h(patient_name: str, appt_datetime: datetime, service
         f"📅 Data: {date_str}\n"
         f"⏰ Horário: {time_str}\n"
         f"🏥 Serviço: {service}\n\n"
-        f"Poderia confirmar sua presença? Responda:\n"
-        f"✅ *Confirmo* — para confirmar\n"
-        f"🔄 *Reagendar* — para mudar o horário\n"
-        f"❌ *Cancelar* — para cancelar\n\n"
+        f"Poderia confirmar sua presença?\n"
+        f"Responda com emoji OU texto:\n\n"
+        f"✅ *Confirmo* (ou digite \"confirmo\")\n"
+        f"🔄 *Reagendar* (ou digite \"reagendar\")\n"
+        f"❌ *Cancelar* (ou digite \"cancelar\")\n\n"
         f"Caso precise de ajuda, estou aqui! 🙂"
     )
 

@@ -7,7 +7,17 @@ DATA_DIR = os.environ.get("DATA_DIR", "data")
 CLINIC_CONFIG = {
     "name": "Espaço Interativo Reabilitare",
     "assistant_name": "Cora",
-    "hours": "Segunda a Sexta: 09:00 às 17:30. Sábados (quinzenalmente): 09:00 às 13:00.",
+    "hours": (
+        "Ortodontia: Segunda a Sexta 08:00–11:30 / 13:00–17:30\n"
+        "Dra. Débora e Dr. Sidney: Segunda a Sexta 09:00–11:00 / 14:30–17:00\n"
+        "Demais serviços: Segunda a Sexta 09:00–17:30\n"
+        "Sábados (quinzenalmente): 09:00–13:00"
+    ),
+    "schedules": {
+        "Ortodontia": {"blocks": [("08:00", "11:30"), ("13:00", "17:30")]},
+        "default": {"blocks": [("09:00", "17:30")]},
+        "saturday": {"blocks": [("09:00", "13:00")]},
+    },
     "services": [
         {"name": "Odontopediatria (1ª vez)", "duration": 60},
         {"name": "Odontopediatria (Retorno)", "duration": 40},

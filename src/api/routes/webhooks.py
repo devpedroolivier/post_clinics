@@ -19,6 +19,42 @@ from src.infrastructure.services.zapi import send_message
 logger = logging.getLogger("PostClinics.Webhook")
 router = APIRouter(prefix="/webhook", tags=["Webhooks"])
 
+# --- INTENT PRE-PROCESSING ---
+# Maps short messages / emojis from reminder responses to explicit intent phrases
+INTENT_MAP = {
+    # Confirmar
+    "✅": "confirmar", "confirmo": "confirmar", "confirmar": "confirmar",
+    "sim": "confirmar", "confirmado": "confirmar", "confirmei": "confirmar",
+    "confirma": "confirmar", "ok": "confirmar",
+    # Reagendar
+    "🔄": "reagendar", "reagendar": "reagendar", "remarcar": "reagendar",
+    "mudar": "reagendar", "trocar": "reagendar", "reagenda": "reagendar",
+    "transferir": "reagendar", "adiar": "reagendar",
+    # Cancelar
+    "❌": "cancelar", "cancelar": "cancelar", "x": "cancelar",
+    "cancela": "cancelar", "desmarcar": "cancelar", "cancelo": "cancelar",
+    "desmarco": "cancelar", "nao vou": "cancelar", "não vou": "cancelar",
+}
+
+INTENT_PHRASES = {
+    "confirmar": "Quero confirmar minha consulta",
+    "reagendar": "Quero reagendar minha consulta",
+    "cancelar": "Quero cancelar minha consulta",
+}
+
+def preprocess_intent(text: str) -> str:
+    """Convert short emoji/text responses into explicit intent phrases for the agent."""
+    normalized = text.strip().lower()
+    # Remove variation selectors and zero-width joiners from emojis
+    normalized = normalized.replace("\ufe0f", "").replace("\u200d", "")
+    
+    intent = INTENT_MAP.get(normalized)
+    if intent:
+        phrase = INTENT_PHRASES[intent]
+        logger.info(f"[INTENT] Mapped '{text}' -> '{phrase}'")
+        return phrase
+    return text
+
 # Map of tool names to their undecorated implementations
 TOOL_MAP = {
     "check_availability": _check_availability,
@@ -116,6 +152,9 @@ async def receiver(request: Request):
             prefs = ""
             logger.error(f"Failed to fetch profile: {e}")
             
+        # Pre-process short messages/emojis into explicit intent phrases
+        text_content = preprocess_intent(text_content)
+        
         # Inject patient phone into context so agent can look up appointments
         agent_input = f"Telefone do paciente: {phone}\n{prefs}\n{text_content}"
         
