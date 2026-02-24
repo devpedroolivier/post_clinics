@@ -346,10 +346,13 @@ def find_patient_appointments(phone: str) -> str:
 
 @function_tool
 def search_knowledge_base(query: str) -> str:
-    """Search the clinic's knowledge base and FAQs for complex questions about rules, specific procedures, or edge cases. Use this IF and ONLY IF the answer is not already in your system prompt."""
+    """Search the clinic's knowledge base and FAQs for complex questions about rules, specific procedures, ou preços/valores. Use this IF and ONLY IF the answer is not already in your system prompt."""
     results = search_store(query, k=2)
     if not results:
-        return "Nenhuma informação relevante encontrada na base de conhecimento."
+        query_lower = query.lower()
+        if "valor" in query_lower or "preç" in query_lower or "preco" in query_lower:
+             return "(SYSTEM: Nenhuma informação de preço encontrada na base. Use a ferramenta request_human_attendant IMEDIATAMENTE.)"
+        return "Nenhuma informação relevante encontrada na base de conhecimento. Se a dúvida persistir, encaminhe para um atendente utilizando request_human_attendant."
     
     docs = [f"Referência {i+1}: {res.page_content.strip()}" for i, res in enumerate(results)]
     return "\n\n".join(docs)

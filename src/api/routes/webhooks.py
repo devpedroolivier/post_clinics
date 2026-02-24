@@ -26,13 +26,15 @@ router = APIRouter(prefix="/webhook", tags=["Webhooks"])
 INTENT_PATTERNS = {
     "confirmar": r'\b(sim|confirmo|confirmar|confirmado|confirmei|confirma|ok)\b|✅',
     "reagendar": r'\b(reagendar|remarcar|mudar|trocar|reagenda|transferir|adiar)\b|🔄',
-    "cancelar": r'\b(cancelar|cancela|desmarcar|cancelo|desmarco|nao vou|não vou)\b|❌|(?<![a-zA-Z])x(?![a-zA-Z])'
+    "cancelar": r'\b(cancelar|cancela|desmarcar|cancelo|desmarco|nao vou|não vou)\b|❌|(?<![a-zA-Z])x(?![a-zA-Z])',
+    "falar_atendente": r'\b(atendente|humano|pessoa|chata|ruim|falar com alguem|valor da consulta|preço)\b'
 }
 
 INTENT_PHRASES = {
     "confirmar": "Quero confirmar minha consulta",
     "reagendar": "Quero reagendar minha consulta",
     "cancelar": "Quero cancelar minha consulta",
+    "falar_atendente": "Quero falar com um atendente",
 }
 
 def preprocess_intent(text: str) -> str:
