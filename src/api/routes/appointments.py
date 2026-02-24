@@ -29,6 +29,7 @@ async def get_appointments(include_cancelled: bool = False):
                 "patient_phone": patient.phone,
                 "datetime": appointment.datetime.isoformat(),
                 "service": appointment.service,
+                "professional": appointment.professional,
                 "status": appointment.status,
                 "created_at": appointment.created_at.isoformat()
             })
@@ -59,6 +60,7 @@ async def create_appointment(data: AppointmentCreate):
             patient_id=patient.id,
             datetime=dt,
             service=data.service,
+            professional=data.professional,
             status="confirmed"
         )
         session.add(appointment)
@@ -88,6 +90,9 @@ async def update_appointment(appointment_id: int, data: AppointmentUpdate):
 
         if data.service:
             appointment.service = data.service
+
+        if data.professional:
+            appointment.professional = data.professional
 
         if data.patient_name or data.patient_phone:
             patient = session.get(Patient, appointment.patient_id)

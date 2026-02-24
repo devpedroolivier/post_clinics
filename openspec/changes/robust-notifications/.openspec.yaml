@@ -1,0 +1,10 @@
+name: robust-notifications
+status: planning
+proposal: proposal.md
+design: design.md
+tasks: tasks.md
+specs:
+  - specs/reliable-reminder-logic.md
+  - specs/notification-logging.md
+  - specs/retry-mechanism.md
+  - specs/status-synchronization.md

@@ -3,7 +3,7 @@ from src.core.config import DATA_DIR
 import os
 
 # Import models so SQLModel knows about them before create_all
-from src.domain.models import Patient, Appointment
+from src.domain.models import Patient, Appointment, NotificationLog
 
 # Database Setup
 DATABASE_FILE = os.path.join(DATA_DIR, "post_clinics.db")

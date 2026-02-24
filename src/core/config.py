@@ -39,24 +39,27 @@ CLINIC_CONFIG = {
     "assistant_name": "Cora",
     "hours": (
         "Ortodontia: Segunda a Sexta 08:00–11:30 / 13:00–17:30\n"
-        "Dra. Débora e Dr. Sidney: Segunda a Sexta 09:00–11:00 / 14:30–17:00\n"
-        "Demais serviços: Segunda a Sexta 09:00–17:30\n"
-        "Sábados (quinzenalmente): 09:00–13:00"
+        "Dra. Débora e Dr. Sidney: Seg a Sex 09:00–12:00 / 14:30–18:00, Sáb 08:00–12:30\n"
+        "Demais serviços: Segunda a Sexta 09:00–17:30"
     ),
     "schedules": {
         "Ortodontia": {"blocks": [("08:00", "11:30"), ("13:00", "17:30")]},
+        "Dra. Débora / Dr. Sidney": {
+            "mon_fri": [("09:00", "12:00"), ("14:30", "18:00")],
+            "sat": [("08:00", "12:30")]
+        },
         "default": {"blocks": [("09:00", "17:30")]},
         "saturday": {"blocks": [("09:00", "13:00")]},
     },
     "services": [
-        {"name": "Odontopediatria (1ª vez)", "duration": 60},
-        {"name": "Odontopediatria (Retorno)", "duration": 40},
-        {"name": "Pacientes Especiais (1ª vez)", "duration": 60},
-        {"name": "Pacientes Especiais (Retorno)", "duration": 40},
-        {"name": "Implante", "duration": 40},
-        {"name": "Clínica Geral", "duration": 40},
-        {"name": "Ortodontia", "duration": 40, "note": "Apenas dias 24 e 25 de Fev"},
-        {"name": "Fonoaudióloga miofuncional", "duration": 40}
+        {"name": "Odontopediatria (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Odontopediatria (Retorno)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Pacientes Especiais (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Pacientes Especiais (Retorno)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Implante", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Clínica Geral", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Ortodontia", "duration": 45, "professional": "Ortodontia", "note": "Apenas dias 24 e 25 de Fev"},
+        {"name": "Fonoaudióloga miofuncional", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"}
     ],
     "cancellation_policy": "Cancelamentos devem ser feitos com 24h de antecedência.",
     "communication_flow": "Enviamos confirmação 1 dia antes e lembrete 3h antes da consulta."

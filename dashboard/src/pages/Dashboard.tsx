@@ -18,18 +18,22 @@ type Appointment = {
     patient_phone: string;
     datetime: string;
     service: string;
+    professional: string;
     status: string;
 };
 
 // Custom Event Render for better UI
 function renderEventContent(eventInfo: any) {
     const isConfirmed = eventInfo.event.extendedProps.status === 'confirmed';
+    const professional = eventInfo.event.extendedProps.professional;
     return (
-        <div className={`w-full overflow-hidden text-ellipsis whitespace-nowrap px-1`} title={eventInfo.event.title}>
+        <div className={`w-full overflow-hidden text-ellipsis whitespace-nowrap px-1`} title={`${eventInfo.event.title} (${professional})`}>
             <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full shrink-0 ${isConfirmed ? 'bg-white/80' : 'bg-white/50'}`}></div>
                 <b className="font-semibold text-[10px] md:text-xs tracking-tight">{eventInfo.timeText}</b>
-                <span className="font-medium text-[10px] md:text-xs truncate">{eventInfo.event.title}</span>
+                <span className="font-medium text-[10px] md:text-xs truncate">
+                    {eventInfo.event.title} <span className="opacity-75 font-normal">({professional})</span>
+                </span>
             </div>
         </div>
     );
@@ -47,7 +51,7 @@ export const Dashboard = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
-    const [formData, setFormData] = useState({ patient_name: '', patient_phone: '', datetime: '', service: 'Odontopediatria (1ª vez)' });
+    const [formData, setFormData] = useState({ patient_name: '', patient_phone: '', datetime: '', service: 'Clínica Geral', professional: 'Clínica Geral' });
     const calendarRef = useRef<FullCalendar>(null);
 
     const loadData = async () => {
@@ -98,7 +102,7 @@ export const Dashboard = () => {
 
     const handleCreateNew = () => {
         setEditingId(null);
-        setFormData({ patient_name: '', patient_phone: '', datetime: '', service: 'Clínica Geral' });
+        setFormData({ patient_name: '', patient_phone: '', datetime: '', service: 'Clínica Geral', professional: 'Clínica Geral' });
         setFormModalOpen(true);
     };
 
@@ -112,7 +116,8 @@ export const Dashboard = () => {
             patient_name: selectedEvent.title,
             patient_phone: props.phone,
             datetime: localDateTime,
-            service: props.service || 'Clínica Geral'
+            service: props.service || 'Clínica Geral',
+            professional: props.professional || 'Clínica Geral'
         });
         setFormModalOpen(true);
     };
@@ -146,13 +151,21 @@ export const Dashboard = () => {
         }
     };
 
-    const events = appointments.map(apt => ({
-        id: apt.id,
-        title: apt.patient_name,
-        start: apt.datetime,
-        extendedProps: { phone: apt.patient_phone, service: apt.service, status: apt.status },
-        backgroundColor: apt.status === 'confirmed' ? '#28A745' : '#666666',
-    }));
+    const events = appointments.map(apt => {
+        let bgColor = '#666666';
+        if (apt.status === 'confirmed') {
+            if (apt.professional === 'Ortodontia') bgColor = '#007BFF';
+            else if (apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#E83E8C';
+            else bgColor = '#28A745';
+        }
+        return {
+            id: apt.id,
+            title: apt.patient_name,
+            start: apt.datetime,
+            extendedProps: { phone: apt.patient_phone, service: apt.service, professional: apt.professional, status: apt.status },
+            backgroundColor: bgColor,
+        };
+    });
 
     return (
         <div className="flex h-screen bg-brand-bg font-inter overflow-hidden relative">
@@ -180,13 +193,15 @@ export const Dashboard = () => {
                                 ref={calendarRef}
                                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
                                 initialView="dayGridMonth"
-                                headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }}
+                                headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
                                 locale="pt-br"
                                 height="auto"
                                 events={events}
                                 eventClick={handleEventClick}
                                 eventContent={renderEventContent}
                                 dayMaxEvents={3}
+                                slotMinTime="08:00:00"
+                                slotMaxTime="18:30:00"
                             />
                         </div>
                     </div>
@@ -258,6 +273,14 @@ export const Dashboard = () => {
                                 <select className="input-field" value={formData.service} onChange={e => setFormData({ ...formData, service: e.target.value })}>
                                     {["Odontopediatria (1ª vez)", "Odontopediatria (Retorno)", "Pacientes Especiais (1ª vez)", "Pacientes Especiais (Retorno)", "Implante", "Clínica Geral", "Ortodontia", "Fonoaudióloga miofuncional"].map(s => (
                                         <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="form-label">Profissional</label>
+                                <select className="input-field" value={formData.professional} onChange={e => setFormData({ ...formData, professional: e.target.value })}>
+                                    {["Clínica Geral", "Ortodontia", "Dra. Débora / Dr. Sidney"].map(p => (
+                                        <option key={p} value={p}>{p}</option>
                                     ))}
                                 </select>
                             </div>

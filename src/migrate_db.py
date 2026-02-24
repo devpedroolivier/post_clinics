@@ -37,7 +37,19 @@ def migrate_db():
         else:
             print("'notified_3h' already exists.")
             
+        # Add professional if missing
+        if "professional" not in columns:
+            print("Adding 'professional' column...")
+            cursor.execute("ALTER TABLE appointment ADD COLUMN professional VARCHAR DEFAULT 'Clínica Geral'")
+        else:
+            print("'professional' already exists.")
+            
         conn.commit()
+        
+        # Create new tables (like notification_log) that are not in the existing DB
+        print("Ensuring all new tables are created...")
+        create_db_and_tables()
+        
         print("Migration completed successfully.")
         
     except Exception as e:
