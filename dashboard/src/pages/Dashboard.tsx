@@ -22,19 +22,22 @@ type Appointment = {
     status: string;
 };
 
-// Custom Event Render for better UI
+// Custom Event Render for Minimalist UI
 function renderEventContent(eventInfo: any) {
     const isConfirmed = eventInfo.event.extendedProps.status === 'confirmed';
     const professional = eventInfo.event.extendedProps.professional;
     return (
-        <div className={`w-full overflow-hidden text-ellipsis whitespace-nowrap px-1`} title={`${eventInfo.event.title} (${professional})`}>
-            <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${isConfirmed ? 'bg-white/80' : 'bg-white/50'}`}></div>
-                <b className="font-semibold text-[10px] md:text-xs tracking-tight">{eventInfo.timeText}</b>
-                <span className="font-medium text-[10px] md:text-xs truncate">
-                    {eventInfo.event.title} <span className="opacity-75 font-normal">({professional})</span>
-                </span>
+        <div className="w-full h-full overflow-hidden text-ellipsis px-1.5 py-0.5 flex flex-col justify-center" title={`${eventInfo.event.title} (${professional})`}>
+            <div className="flex items-center gap-1.5 mb-0.5">
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
+                <b className="font-bold text-[10px] md:text-xs tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
             </div>
+            <span className="font-semibold text-[11px] md:text-xs truncate text-brand-text-primary leading-tight">
+                {eventInfo.event.title}
+            </span>
+            <span className="text-[9px] md:text-[10px] text-brand-text-secondary truncate mt-0.5 font-medium">
+                {professional}
+            </span>
         </div>
     );
 }
@@ -152,18 +155,23 @@ export const Dashboard = () => {
     };
 
     const events = appointments.map(apt => {
-        let bgColor = '#666666';
+        let bgColor = '#FFFFFF'; // Default pending background (white)
+
         if (apt.status === 'confirmed') {
-            if (apt.professional === 'Ortodontia') bgColor = '#007BFF';
-            else if (apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#E83E8C';
-            else bgColor = '#28A745';
+            // Faint pastels for confirmed, distinguished by professional
+            if (apt.professional === 'Ortodontia') bgColor = '#DBEAFE'; // Minimalist Blue
+            else if (apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#FCE7F3'; // Minimalist Pink
+            else bgColor = '#D1FAE5'; // Minimalist Green
         }
+
         return {
             id: apt.id,
             title: apt.patient_name,
             start: apt.datetime,
             extendedProps: { phone: apt.patient_phone, service: apt.service, professional: apt.professional, status: apt.status },
             backgroundColor: bgColor,
+            textColor: '#111827', // Always dark text
+            borderColor: apt.status === 'confirmed' ? 'transparent' : '#E5E7EB', // Faint border if pending
         };
     });
 
@@ -172,36 +180,48 @@ export const Dashboard = () => {
             <Sidebar isMobileOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
 
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                <header className="h-[70px] bg-white border-b border-brand-border flex items-center justify-between px-8 shrink-0">
+                <header className="h-[76px] bg-white border-b border-brand-border flex items-center justify-between px-6 md:px-10 shrink-0">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setSidebarOpen(true)} className="md:hidden text-2xl text-brand-text-primary focus:outline-none">☰</button>
-                        <h1 className="text-2xl font-semibold text-brand-text-primary tracking-tight">Visão Geral</h1>
+                        <h1 className="text-2xl font-bold text-brand-text-primary tracking-tight">Schedule</h1>
                     </div>
-                    <button onClick={handleCreateNew} className="btn-primary shadow-sm">+ Nova Consulta</button>
+                    <button onClick={handleCreateNew} className="btn-primary shadow-sm">+ New Event</button>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto flex flex-col gap-6">
+                <div className="flex-1 overflow-y-auto p-4 md:p-10">
+                    <div className="max-w-[1600px] mx-auto flex flex-col gap-8">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <KPICard label="Agendamentos Hoje" value={todayCount} subtext={todayCount > 0 ? 'Agendados para hoje' : 'Nada por hoje'} subtextColor={todayCount > 0 ? "text-brand-success" : "text-brand-text-secondary"} />
-                            <KPICard label="Total Ativos" value={appointments.length} />
-                            <KPICard label="Taxa de Confirmação" value={`${confirmationRate}%`} />
+                            {/* KPI Cards styled for minimal logic without nested borders */}
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-brand-border/50 flex flex-col justify-center">
+                                <span className="text-sm font-semibold text-brand-text-secondary uppercase tracking-widest mb-2">Today's Load</span>
+                                <div className="text-4xl font-bold text-brand-text-primary">{todayCount}</div>
+                                <span className="text-xs text-brand-text-secondary mt-2 font-medium">{todayCount > 0 ? 'Appointments Scheduled' : 'No patients today'}</span>
+                            </div>
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-brand-border/50 flex flex-col justify-center">
+                                <span className="text-sm font-semibold text-brand-text-secondary uppercase tracking-widest mb-2">Active Overall</span>
+                                <div className="text-4xl font-bold text-brand-text-primary">{appointments.length}</div>
+                            </div>
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-brand-border/50 flex flex-col justify-center">
+                                <span className="text-sm font-semibold text-brand-text-secondary uppercase tracking-widest mb-2">Confirmation Rate</span>
+                                <div className="text-4xl font-bold text-brand-text-primary">{confirmationRate}%</div>
+                            </div>
                         </div>
 
-                        <div className="card p-4 md:p-6">
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-brand-border/50">
                             <FullCalendar
                                 ref={calendarRef}
                                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
                                 initialView="dayGridMonth"
                                 headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
-                                locale="pt-br"
+                                locale="en"
                                 height="auto"
                                 events={events}
                                 eventClick={handleEventClick}
                                 eventContent={renderEventContent}
-                                dayMaxEvents={3}
+                                dayMaxEvents={4}
                                 slotMinTime="08:00:00"
                                 slotMaxTime="18:30:00"
+                                allDaySlot={false}
                             />
                         </div>
                     </div>

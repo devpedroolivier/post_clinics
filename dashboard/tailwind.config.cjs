@@ -10,14 +10,20 @@ module.exports = {
                 inter: ['Inter', 'sans-serif'],
             },
             colors: {
-                'brand-bg': '#FFFFFF',
-                'brand-sidebar': '#FAFAFA',
-                'brand-text-primary': '#333333',
-                'brand-text-secondary': '#666666',
-                'brand-border': '#E5E5E5',
-                'brand-success': '#28A745',
-                'brand-primary': '#007BFF',
-                'brand-danger': '#DC3545',
+                'brand-bg': '#F9FAFB', // Very subtle off-white background
+                'brand-sidebar': '#FFFFFF',
+                'brand-text-primary': '#111827', // Crisp, dark gray/black
+                'brand-text-secondary': '#6B7280', // Medium gray for hierarchy
+                'brand-border': '#E5E7EB', // Faint divider borders
+                'brand-success': '#111827', // Map success to primary dark for UI consistency unless critical
+                'brand-primary': '#111827', // Primary buttons are now black
+                'brand-danger': '#EF4444', // Keep red for destructive actions only
+
+                // Pastel accents for Calendar Events
+                'event-green': '#D1FAE5',
+                'event-blue': '#DBEAFE',
+                'event-pink': '#FCE7F3',
+                'event-gray': '#F3F4F6'
             }
         },
     },

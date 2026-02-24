@@ -59,41 +59,49 @@
   }
 }
 
-/* FullCalendar UX Improvements (CRITICAL) */
+/* FullCalendar UX Improvements (Minimalist B&W) */
 .fc {
   @apply font-inter text-sm text-brand-text-primary;
 }
 
 .fc-theme-standard th {
-  @apply py-2 border-brand-border font-medium text-brand-text-secondary uppercase tracking-wider text-xs;
+  @apply py-3 border-none font-semibold text-brand-text-primary capitalize tracking-normal text-sm;
 }
 
 .fc-theme-standard td,
 .fc-theme-standard th {
-  @apply border-brand-border;
+  @apply border-brand-border/60; /* Extremely faint grid lines */
+}
+
+.fc-theme-standard .fc-scrollgrid {
+  @apply border-transparent; /* Remove outer border */
 }
 
 /* Day cells styling */
 .fc-daygrid-day-frame {
-  @apply p-1 min-h-[100px];
+  @apply p-1.5 min-h-[120px] transition-colors hover:bg-white/50;
 }
 
-/* Current day highlight */
+/* Current day highlight - Bold stark indicator */
 .fc .fc-day-today {
-  @apply bg-blue-50/30 !important;
+  @apply bg-transparent !important;
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+  @apply bg-brand-text-primary text-white rounded-full w-7 h-7 flex items-center justify-center font-bold shadow-md;
 }
 
 .fc-daygrid-day-number {
-  @apply p-2 opacity-70 font-medium;
+  @apply p-2 opacity-90 font-medium text-brand-text-primary w-7 h-7 flex items-center justify-center;
 }
 
-/* Events Styling */
+/* Events Styling - Clean Rounded Cards */
 .fc-event {
-  @apply border-none shadow-sm rounded-md overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] hover:shadow-md hover:z-10 mb-1 mx-1 !important;
+  @apply border border-black/5 shadow-sm rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] hover:z-10 mb-1.5 mx-1 !important;
 }
 
 .fc-event-main {
-  @apply px-2 py-1 text-xs font-medium text-white shadow-sm;
+  @apply px-2.5 py-1.5 text-xs font-semibold text-brand-text-primary;
 }
 
 /* Improve Spacing */
@@ -101,27 +109,21 @@
   @apply mb-1.5;
 }
 
-/* Status colors map (using CSS vars so we can set inline, or base depending on class) */
-/* FullCalendar handles background color via inline styles mostly, but when we render in React we can pass color */
-.status-confirmed {
-  background-color: var(--success);
-}
-
-.status-pending {
-  background-color: var(--gray-medium);
-}
-
-/* Toolbar adjustments */
+/* Toolbar adjustments - Minimalist */
 .fc-toolbar-title {
-  @apply text-xl font-semibold !important;
+  @apply text-2xl font-bold tracking-tight text-brand-text-primary !important;
+}
+
+.fc-button-group {
+    @apply gap-2;
 }
 
 .fc-button-primary {
-  @apply !bg-white !text-brand-text-primary !border-brand-border !shadow-sm capitalize !font-medium px-4 py-1.5 !rounded-lg transition-colors;
+  @apply !bg-white !text-brand-text-secondary !border !border-brand-border !shadow-sm capitalize !font-medium px-4 py-1.5 !rounded-lg transition-colors;
 }
 
 .fc-button-primary:hover {
-  @apply !bg-gray-50;
+  @apply !bg-gray-50 !text-brand-text-primary;
 }
 
 .fc-button-primary:focus {
@@ -129,7 +131,7 @@
 }
 
 .fc-button-active {
-  @apply !bg-brand-bg !border-brand-text-primary !font-semibold;
+  @apply !bg-brand-text-primary !text-white !border-transparent !font-semibold !important;
 }
 
 /* Toast animations */
@@ -148,16 +150,17 @@
 .toast-enter {
   animation: slideInRight 0.3s ease-out forwards;
 }
+
 /* Fix FullCalendar more popover bleeding */
 .fc-popover {
-  @apply bg-white z-50 shadow-xl border border-brand-border rounded-lg overflow-hidden !important;
+  @apply bg-white z-50 shadow-2xl border border-brand-border rounded-xl overflow-hidden !important;
 }
 .fc-popover-header {
-  @apply bg-gray-50 py-2 px-3 border-b border-brand-border font-semibold text-brand-text-primary !important;
+  @apply bg-white py-3 px-4 border-b border-brand-border font-bold text-brand-text-primary !important;
 }
 .fc-popover-body {
-  @apply p-2 bg-white !important;
+  @apply p-3 bg-white !important;
 }
 .fc-more-popover .fc-event {
-  @apply mb-1 !important;
+  @apply mb-1.5 !important;
 }
