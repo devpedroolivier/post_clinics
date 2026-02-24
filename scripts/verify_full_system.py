@@ -1,6 +1,7 @@
 import asyncio
 import requests
 import json
+import os
 from dotenv import load_dotenv
 load_dotenv()
 from datetime import datetime, timedelta
@@ -11,6 +12,22 @@ from agents import Runner, SQLiteSession
 API_URL = "http://localhost:8000"
 TEST_PHONE = "5511999999999"
 TEST_NAME = "Full System Test"
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "clinica_espaco_interativo_reabilitare")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
+
+def get_auth_headers():
+    """Authenticate and return Authorization headers."""
+    response = requests.post(
+        f"{API_URL}/api/auth/login",
+        json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+        timeout=30,
+    )
+    response.raise_for_status()
+    data = response.json()
+    token = data.get("access_token") or data.get("token")
+    if not token:
+        raise RuntimeError("Login succeeded but no token returned.")
+    return {"Authorization": f"Bearer {token}"}
 
 async def test_agent_scheduling():
     print(f"\n--- 1. Testing Agent Scheduling (Agendamento) ---")
@@ -26,7 +43,8 @@ async def test_agent_scheduling():
     
     # Verify via API (Simulating Dashboard View)
     print("\nVerifying via Dashboard API (GET /api/appointments)...")
-    response = requests.get(f"{API_URL}/api/appointments")
+    headers = get_auth_headers()
+    response = requests.get(f"{API_URL}/api/appointments", headers=headers, timeout=30)
     if response.status_code == 200:
         appointments = response.json()["appointments"]
         found = False
@@ -44,6 +62,7 @@ async def test_agent_scheduling():
 
 async def test_dashboard_manual_entry():
     print(f"\n--- 2. Testing Dashboard Manual Entry (POST API) ---")
+    headers = get_auth_headers()
     
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     payload = {
@@ -54,7 +73,7 @@ async def test_dashboard_manual_entry():
     }
     
     print(f"Sending POST to {API_URL}/api/appointments with: {json.dumps(payload)}")
-    response = requests.post(f"{API_URL}/api/appointments", json=payload)
+    response = requests.post(f"{API_URL}/api/appointments", json=payload, headers=headers, timeout=30)
     
     if response.status_code == 200:
         print(f"✅ SUCCESS: API returned {response.json()}")
@@ -63,7 +82,7 @@ async def test_dashboard_manual_entry():
 
     # Verify persistence
     print("Verifying persistence via GET API...")
-    response = requests.get(f"{API_URL}/api/appointments")
+    response = requests.get(f"{API_URL}/api/appointments", headers=headers, timeout=30)
     appointments = response.json()["appointments"]
     found = any(apt["patient_phone"] == "5511888888888" for apt in appointments)
     if found:

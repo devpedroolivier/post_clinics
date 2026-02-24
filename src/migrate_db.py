@@ -2,8 +2,8 @@ import shutil
 import sqlite3
 import os
 from datetime import datetime
-from src.config import DATA_DIR
-from src.database import create_db_and_tables
+from src.core.config import DATA_DIR
+from src.infrastructure.database import create_db_and_tables
 
 def migrate_db():
     print("Starting database migration for Notification Flags...")

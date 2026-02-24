@@ -1,4 +1,5 @@
 import time
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -51,7 +52,7 @@ def get_reminder_message_3h(patient_name: str, appt_datetime: datetime, service:
         f"Estamos te esperando! Até logo. 🙂"
     )
 
-def check_and_send_reminders():
+async def check_and_send_reminders():
     now = datetime.now(BR_TZ).replace(tzinfo=None)
     logger.info(f"Checking reminders at {now.strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -73,7 +74,7 @@ def check_and_send_reminders():
                 message = get_reminder_message_24h(patient.name, appointment.datetime, appointment.service)
                 logger.info(f"Sending 24h reminder to {patient.phone} for appt {appointment.id}")
                 
-                success = send_message(patient.phone, message)
+                success = await send_message(patient.phone, message)
                 if success:
                     appointment.notified_24h = True
                     session.add(appointment)
@@ -88,7 +89,7 @@ def check_and_send_reminders():
                 message = get_reminder_message_3h(patient.name, appointment.datetime, appointment.service)
                 logger.info(f"Sending 3h reminder to {patient.phone} for appt {appointment.id}")
                 
-                success = send_message(patient.phone, message)
+                success = await send_message(patient.phone, message)
                 if success:
                     appointment.notified_3h = True
                     session.add(appointment)
@@ -108,7 +109,7 @@ def run_scheduler():
     
     while True:
         try:
-            check_and_send_reminders()
+            asyncio.run(check_and_send_reminders())
         except Exception as e:
             logger.error(f"Error during reminder check: {e}")
         

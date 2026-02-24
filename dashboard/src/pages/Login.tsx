@@ -16,8 +16,9 @@ export const Login = () => {
         setError('');
         try {
             const data = await loginCall({ username, password });
-            if (data.token) {
-                localStorage.setItem('token', data.token);
+            const token = data.access_token || data.token;
+            if (token) {
+                localStorage.setItem('token', token);
                 navigate('/');
             }
         } catch (err: any) {

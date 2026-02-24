@@ -10,6 +10,7 @@ load_dotenv()
 
 from src.infrastructure.database import create_db_and_tables
 from src.api.routes import auth, appointments, webhooks
+from src.core.config import CORS_ALLOWED_ORIGINS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("PostClinics")
@@ -24,10 +25,10 @@ app = FastAPI(title="POST Clinics MVP", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "ngrok-skip-browser-warning"],
 )
 
 app.include_router(auth.router)

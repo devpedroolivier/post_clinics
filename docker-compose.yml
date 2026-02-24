@@ -17,7 +17,7 @@ services:
   scheduler:
     build: .
     container_name: noshowai_scheduler
-    command: python -m src.scheduler
+    command: python -m src.application.scheduler
     volumes:
       - ./data:/app/data
     env_file:

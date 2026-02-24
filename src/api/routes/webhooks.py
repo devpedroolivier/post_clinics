@@ -5,9 +5,10 @@ import logging
 from collections import defaultdict
 import time as _time
 from fastapi import APIRouter, Request, HTTPException
-from agents import Runner, SQLiteSession, RunConfig
+from agents import Runner, SQLiteSession
 
 from src.core.config import ANTISPAM_CONFIG, DATA_DIR
+from src.core.security import verify_webhook_signature
 from src.application.tools import (
     _check_availability, _schedule_appointment, _confirm_appointment,
     _cancel_appointment, _reschedule_appointment, _get_available_services,
@@ -86,8 +87,13 @@ async def receiver(request: Request):
     global _seen_messages, _phone_timestamps
     
     try:
-        payload = await request.json()
-        logger.info(f"Received payload: {payload}")
+        raw_body = await request.body()
+        verify_webhook_signature(request.headers, raw_body)
+
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
         
         phone = payload.get("phone")
         
@@ -101,6 +107,13 @@ async def receiver(request: Request):
             text_content = text_data
             
         message_id = payload.get("messageId", "unknown")
+        logger.info(
+            "[WPP:RAW] msgId=%s fromMe=%s isGroup=%s phoneSuffix=%s",
+            message_id,
+            payload.get("fromMe", False),
+            payload.get("isGroup", False),
+            (str(phone)[-4:] if phone else "none"),
+        )
             
         if not phone or not text_content:
             logger.warning(f"Ignored payload (missing phone/text): {payload}")
@@ -166,7 +179,7 @@ async def receiver(request: Request):
         
         logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
         
-        result = await Runner.run(agent, input=agent_input, session=session, run_config=RunConfig(max_turns=10))
+        result = await Runner.run(agent, input=agent_input, session=session, max_turns=10)
         logger.info(f"Agent response: {result}")
         
         # --- GROQ/LLAMA 3 WORKAROUND ---
@@ -224,12 +237,14 @@ async def receiver(request: Request):
         if not reply_text:
             reply_text = "Desculpe, não entendi. Pode repetir?"
             
-        send_success = send_message(phone, reply_text)
+        send_success = await send_message(phone, reply_text)
         logger.info(f"[WPP:OUT] phone={phone} success={send_success} reply={reply_text[:100]}...")
         
         status = "processed_and_sent" if send_success else "processed_send_failed"
         return {"status": status, "reply": reply_text}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))

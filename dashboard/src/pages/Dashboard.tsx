@@ -47,7 +47,7 @@ export const Dashboard = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
-    const [formData, setFormData] = useState({ patient_name: '', patient_phone: '', datetime: '', service: 'Clínica Geral' });
+    const [formData, setFormData] = useState({ patient_name: '', patient_phone: '', datetime: '', service: 'Odontopediatria (1ª vez)' });
     const calendarRef = useRef<FullCalendar>(null);
 
     const loadData = async () => {
@@ -256,7 +256,7 @@ export const Dashboard = () => {
                             <div>
                                 <label className="form-label">Serviço</label>
                                 <select className="input-field" value={formData.service} onChange={e => setFormData({ ...formData, service: e.target.value })}>
-                                    {["Clínica Geral", "Odontopediatria (1ª vez)", "Odontopediatria (Retorno)", "Pacientes Especiais (1ª vez)", "Implante", "Ortodontia", "Fonoaudióloga miofuncional", "Sedação endovenosa"].map(s => (
+                                    {["Odontopediatria (1ª vez)", "Odontopediatria (Retorno)", "Pacientes Especiais (1ª vez)", "Pacientes Especiais (Retorno)", "Implante", "Clínica Geral", "Ortodontia", "Fonoaudióloga miofuncional"].map(s => (
                                         <option key={s} value={s}>{s}</option>
                                     ))}
                                 </select>

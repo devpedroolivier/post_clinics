@@ -4,6 +4,9 @@ import time
 import logging
 import argparse
 import sys
+import hmac
+import hashlib
+import json
 from sqlmodel import Session, select, create_engine, delete
 from src.domain.models import Appointment, Patient
 from src.infrastructure.database import DATABASE_URL
@@ -25,6 +28,10 @@ BASE_URL = "http://localhost:8000"
 TEST_PHONE = "5511999998888" # Distinct from standard dev numbers
 TEST_NAME = "Test AutoBot"
 SESSION_ID = f"zapi:{TEST_PHONE}"
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "clinica_espaco_interativo_reabilitare")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
+WEBHOOK_SIGNATURE_SECRET = os.getenv("WEBHOOK_SIGNATURE_SECRET", "change_me_webhook_secret")
+WEBHOOK_SIGNATURE_HEADER = os.getenv("WEBHOOK_SIGNATURE_HEADER", "X-Webhook-Signature")
 
 # Database setup
 engine = create_engine(DATABASE_URL)
@@ -34,6 +41,20 @@ class WorkflowTester:
         self.phone = TEST_PHONE
         self.patient_name = TEST_NAME
         self.results = {}
+        self.auth_headers = self._authenticate()
+
+    def _authenticate(self):
+        login_url = f"{BASE_URL}/api/auth/login"
+        response = requests.post(
+            login_url,
+            json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+            timeout=30,
+        )
+        response.raise_for_status()
+        token = response.json().get("access_token") or response.json().get("token")
+        if not token:
+            raise RuntimeError("Login succeeded but token is missing.")
+        return {"Authorization": f"Bearer {token}"}
 
     def _log_step(self, step_name):
         logger.info(f"--- STEP: {step_name} ---")
@@ -81,12 +102,26 @@ class WorkflowTester:
         payload = {
             "phone": self.phone,
             "text": {"message": text},
-            "messageId": f"msg_{int(time.time())}",
+            "messageId": f"msg_{time.time_ns()}",
             "fromMe": False,
             "isGroup": False
         }
+        payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        signature = hmac.new(
+            WEBHOOK_SIGNATURE_SECRET.encode("utf-8"),
+            payload_bytes,
+            hashlib.sha256,
+        ).hexdigest()
         try:
-            response = requests.post(f"{BASE_URL}/webhook/zapi", json=payload)
+            response = requests.post(
+                f"{BASE_URL}/webhook/zapi",
+                data=payload_bytes,
+                headers={
+                    "Content-Type": "application/json",
+                    WEBHOOK_SIGNATURE_HEADER: f"sha256={signature}",
+                },
+                timeout=60,
+            )
             if response.status_code != 200:
                 logger.error(f"HTTP Error: {response.text}")
                 
@@ -126,7 +161,10 @@ class WorkflowTester:
         """Verifies if the appointment appears in the Dashboard API."""
         self._log_step("Checking Dashboard API")
         try:
-            response = requests.get(f"{BASE_URL}/api/appointments")
+            response = requests.get(f"{BASE_URL}/api/appointments", headers=self.auth_headers, timeout=30)
+            if response.status_code == 401:
+                self.auth_headers = self._authenticate()
+                response = requests.get(f"{BASE_URL}/api/appointments", headers=self.auth_headers, timeout=30)
             response.raise_for_status()
             data = response.json()
             logger.info(f"API Response: {data}")

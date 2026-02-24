@@ -4,6 +4,36 @@ import os
 # Docker uses /app/data, Local uses . (current dir)
 DATA_DIR = os.environ.get("DATA_DIR", "data")
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+_default_cors = "http://localhost:5173,http://127.0.0.1:5173"
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", _default_cors).split(",")
+    if origin.strip()
+]
+
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = _env_int("ACCESS_TOKEN_EXPIRE_MINUTES", 60)
+
+WEBHOOK_VALIDATE_SIGNATURE = _env_bool("WEBHOOK_VALIDATE_SIGNATURE", True)
+WEBHOOK_SIGNATURE_HEADER = os.environ.get("WEBHOOK_SIGNATURE_HEADER", "X-Webhook-Signature")
+WEBHOOK_SIGNATURE_SECRET = os.environ.get("WEBHOOK_SIGNATURE_SECRET")
+
 CLINIC_CONFIG = {
     "name": "Espaço Interativo Reabilitare",
     "assistant_name": "Cora",

@@ -1,10 +1,10 @@
-import requests
+import httpx
 import logging
 from src.core.config import Z_API_CONFIG
 
 logger = logging.getLogger("PostClinics.ZApi")
 
-def send_message(phone: str, message: str):
+async def send_message(phone: str, message: str):
     instance_id = Z_API_CONFIG.get("instance_id")
     token = Z_API_CONFIG.get("token")
     client_token = Z_API_CONFIG.get("client_token")
@@ -26,11 +26,12 @@ def send_message(phone: str, message: str):
     }
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        response.raise_for_status()
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10)
+            response.raise_for_status()
         logger.info(f"Message sent to {phone}: {response.json()}")
         return True
-    except requests.exceptions.HTTPError as e:
+    except httpx.HTTPStatusError as e:
         logger.error(f"HTTP Error sending to Z-API: {e.response.text}")
         return False
     except Exception as e:

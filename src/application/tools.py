@@ -137,7 +137,7 @@ def _schedule_appointment(name: str, phone: str, datetime_str: str, service_name
         session.commit()
         session.refresh(appt)
         
-        return f"Agendamento confirmado! ID: {appt.id} para {name}, Serviço: {service_name} em {datetime_str}."
+        return f"Agendamento confirmado para {name}, Serviço: {service_name} em {datetime_str}."
 
 def _confirm_appointment(appointment_id: int) -> str:
     with Session(engine) as session:
@@ -242,7 +242,7 @@ def _find_patient_appointments(phone: str) -> str:
         for appt in appointments:
             weekday = WEEKDAYS_PT.get(appt.datetime.weekday(), "")
             date_str = appt.datetime.strftime("%d/%m/%Y às %H:%M")
-            lines.append(f"- ID {appt.id}: {weekday}, {date_str} | {appt.service} | Status: {appt.status}")
+            lines.append(f"- [INTERNAL_ID:{appt.id}] {weekday}, {date_str} | {appt.service} | Status: {appt.status}")
         
         return "\n".join(lines)
 

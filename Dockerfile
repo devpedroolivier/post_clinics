@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Copy built frontend assets from Stage 1 into /app/static
-# This matches the path expected by src/main.py logic:
+# This matches the path expected by src/api/main.py logic:
 # static_dir = os.path.join(os.getcwd(), "static")
 COPY --from=frontend-builder /app/dashboard/dist /app/static
 
@@ -35,4 +35,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Run
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
