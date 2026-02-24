@@ -246,5 +246,7 @@ async def receiver(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error processing webhook: {e}")
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"CRITICAL Error processing webhook: {e}\n{error_trace}")
         raise HTTPException(status_code=500, detail=str(e))
