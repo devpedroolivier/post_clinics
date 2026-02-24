@@ -7,7 +7,7 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 
 import { Sidebar } from '../components/Sidebar';
-import { KPICard } from '../components/KPICard';
+
 import { Toast } from '../components/Toast';
 
 import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment } from '../services/api';
