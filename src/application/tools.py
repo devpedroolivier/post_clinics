@@ -9,25 +9,55 @@ from src.infrastructure.vector_store import search_store
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
+import difflib
+
 def get_service_info(service_name: str) -> dict:
-    """Helper to get service info (duration, professional)."""
+    """Helper to get service info (duration, professional) with fuzzy matching."""
+    default_resp = {"duration": 45, "professional": "Clínica Geral"}
     if not service_name:
-        return {"duration": 45, "professional": "Clínica Geral"}
-    for s in CLINIC_CONFIG["services"]:
-        if s["name"].lower() == service_name.lower():
+        return default_resp
+        
+    services = CLINIC_CONFIG.get("services", [])
+    service_names = [s["name"] for s in services]
+    
+    # 1. Exact or close match
+    matches = difflib.get_close_matches(service_name, service_names, n=1, cutoff=0.6)
+    if matches:
+        best_match = matches[0]
+        for s in services:
+            if s["name"] == best_match:
+                return {
+                    "duration": s.get("duration", 45),
+                    "professional": s.get("professional", "Clínica Geral")
+                }
+                
+    # 2. Substring fallback
+    for s in services:
+        if service_name.lower() in s["name"].lower() or s["name"].lower() in service_name.lower():
             return {
                 "duration": s.get("duration", 45),
                 "professional": s.get("professional", "Clínica Geral")
             }
-    return {"duration": 45, "professional": "Clínica Geral"}
+            
+    return default_resp
 
 # --- Core Logic Functions (Undecorated for Testing) ---
 
 def _check_availability(date_str: str, service_name: str = "Clínica Geral") -> str:
+    now = datetime.now(BR_TZ).date()
     try:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        return "Formato de data inválido. Use AAAA-MM-DD."
+        try:
+            target_date = datetime.strptime(date_str, "%d/%m/%Y").date()
+        except ValueError:
+            try:
+                target_date = datetime.strptime(date_str, "%d/%m").date()
+                target_date = target_date.replace(year=now.year)
+                if target_date < now:
+                    target_date = target_date.replace(year=now.year + 1)
+            except ValueError:
+                return "Formato de data inválido. Use AAAA-MM-DD."
 
     info = get_service_info(service_name)
     duration_minutes = info["duration"]

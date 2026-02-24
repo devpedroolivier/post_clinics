@@ -22,20 +22,11 @@ logger = logging.getLogger("PostClinics.Webhook")
 router = APIRouter(prefix="/webhook", tags=["Webhooks"])
 
 # --- INTENT PRE-PROCESSING ---
-# Maps short messages / emojis from reminder responses to explicit intent phrases
-INTENT_MAP = {
-    # Confirmar
-    "✅": "confirmar", "confirmo": "confirmar", "confirmar": "confirmar",
-    "sim": "confirmar", "confirmado": "confirmar", "confirmei": "confirmar",
-    "confirma": "confirmar", "ok": "confirmar",
-    # Reagendar
-    "🔄": "reagendar", "reagendar": "reagendar", "remarcar": "reagendar",
-    "mudar": "reagendar", "trocar": "reagendar", "reagenda": "reagendar",
-    "transferir": "reagendar", "adiar": "reagendar",
-    # Cancelar
-    "❌": "cancelar", "cancelar": "cancelar", "x": "cancelar",
-    "cancela": "cancelar", "desmarcar": "cancelar", "cancelo": "cancelar",
-    "desmarco": "cancelar", "nao vou": "cancelar", "não vou": "cancelar",
+# Regex patterns for matching intents even within longer sentences
+INTENT_PATTERNS = {
+    "confirmar": r'\b(sim|confirmo|confirmar|confirmado|confirmei|confirma|ok)\b|✅',
+    "reagendar": r'\b(reagendar|remarcar|mudar|trocar|reagenda|transferir|adiar)\b|🔄',
+    "cancelar": r'\b(cancelar|cancela|desmarcar|cancelo|desmarco|nao vou|não vou)\b|❌|(?<![a-zA-Z])x(?![a-zA-Z])'
 }
 
 INTENT_PHRASES = {
@@ -50,11 +41,13 @@ def preprocess_intent(text: str) -> str:
     # Remove variation selectors and zero-width joiners from emojis
     normalized = normalized.replace("\ufe0f", "").replace("\u200d", "")
     
-    intent = INTENT_MAP.get(normalized)
-    if intent:
-        phrase = INTENT_PHRASES[intent]
-        logger.info(f"[INTENT] Mapped '{text}' -> '{phrase}'")
-        return phrase
+    # Check if the text matches any intent pattern
+    for intent, pattern in INTENT_PATTERNS.items():
+        if re.search(pattern, normalized):
+            phrase = INTENT_PHRASES[intent]
+            logger.info(f"[INTENT] Mapped '{text}' -> '{phrase}'")
+            return phrase
+            
     return text
 
 # Map of tool names to their undecorated implementations

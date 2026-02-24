@@ -20,6 +20,12 @@ The system prompt MUST explicitly ban the use of emojis by the AI model. The ton
 ### Requirement: Human Fallback
 The system prompt MUST instruct the AI to offer "Falar com atendente" if the user has a complex doubt, requests a human, or if scheduling fails repeatedly.
 
+### Requirement: Robust Intent Parsing
+The webhook middleware `preprocess_intent` MUST use Regex patterns or substring matching instead of exact string matches to reliably detect implicit confirmation/cancellation intents even when accompanied by greetings or punctuation (e.g., "Boa tarde, Sim" or "Sim.").
+
+### Requirement: Anti-Loop Confirmations
+The AI system prompt MUST explicitly handle situations where users greet alongside confirming an appointment, prioritizing the explicit intent (Confirm/Reschedule/Cancel) over the greeting. Once a confirmation is handled, the AI MUST NOT offer to schedule further services continuously to prevent loop states.
+
 ## Scenarios
 
 ### Scenario: Normal scheduling conversation
