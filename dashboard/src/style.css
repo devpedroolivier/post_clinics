@@ -148,3 +148,16 @@
 .toast-enter {
   animation: slideInRight 0.3s ease-out forwards;
 }
+/* Fix FullCalendar more popover bleeding */
+.fc-popover {
+  @apply bg-white z-50 shadow-xl border border-brand-border rounded-lg overflow-hidden !important;
+}
+.fc-popover-header {
+  @apply bg-gray-50 py-2 px-3 border-b border-brand-border font-semibold text-brand-text-primary !important;
+}
+.fc-popover-body {
+  @apply p-2 bg-white !important;
+}
+.fc-more-popover .fc-event {
+  @apply mb-1 !important;
+}
