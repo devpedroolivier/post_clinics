@@ -69,7 +69,8 @@ async def chat():
             out = TOOL_MAP[func_name](**kwargs)
             tool_results.append(f"Tool '{func_name}' returned: {out}")
             
-        next_input = f"(SYSTEM: {' \n'.join(tool_results)}\nBased on these results, respond to the user in Portuguese.)"
+        results_summary = "\n".join(tool_results)
+        next_input = f"(SYSTEM: {results_summary}\nBased on these results, respond to the user in Portuguese.)"
         result = await Runner.run(agent, input=next_input, session=session)
         final_text = str(result.final_output)
         

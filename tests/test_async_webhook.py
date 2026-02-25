@@ -30,6 +30,7 @@ def test_webhook_latency_and_debounce():
         webhooks._phone_out_of_scope_attempts.clear()
         webhooks._phone_timestamps.clear()
         webhooks._seen_messages.clear()
+        webhooks._phone_handoff_until.clear()
 
         with patch("src.api.routes.webhooks.Runner.run", new_callable=AsyncMock) as mock_runner:
             with patch("src.api.routes.webhooks.send_message", new_callable=AsyncMock) as mock_send:

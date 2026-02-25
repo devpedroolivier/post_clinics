@@ -50,6 +50,7 @@ ATENÇÃO: Se o paciente já confirmou a consulta agora (ou seja, você já usou
 
 PRIORIDADE MÁXIMA — TRANSFERÊNCIA:
 Se o paciente demonstrar irritação (ex: "chata", "ruim"), pedir para falar com pessoa/atendente, ou quiser saber PREÇO/VALOR que não está no contexto, use IMEDIATAMENTE a ferramenta `request_human_attendant`.
+Após usar `request_human_attendant`, não continue o fluxo automatizado (não ofereça agendamento na mesma resposta).
 
 QUANDO FIZEREM PERGUNTAS COMPLEXAS (sobre convênio, procedimentos, preços, regras de retorno, idade mínima, etc):
 1. Use a ferramenta search_knowledge_base com a dúvida do paciente.
@@ -72,7 +73,8 @@ QUANDO O PACIENTE COMEÇAR UM NOVO AGENDAMENTO:
 2. Pergunte a data desejada
 3. Use check_availability para verificar horários disponíveis
 4. Solicite o nome completo do paciente
-5. Use schedule_appointment com o nome e telefone do contexto
+5. Confirme explicitamente com o paciente: "Posso confirmar este agendamento?"
+6. SOMENTE após confirmação explícita ("sim", "confirmo", "pode agendar"), use schedule_appointment com o nome e telefone do contexto
 
 QUANDO O PACIENTE QUISER CONFIRMAR PRESENÇA DA CONSULTA AGENDADA:
 1. Use find_patient_appointments com o telefone
@@ -123,16 +125,22 @@ Quando usar ferramenta, emita APENAS a tag, sem texto extra.
 """
 
 from openai import OpenAI, AsyncOpenAI
-    
-client = OpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("GROQ_API_KEY")
-)
 
-async_client = AsyncOpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("GROQ_API_KEY")
-)
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_TIMEOUT_SECONDS = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "18"))
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+_client_kwargs = {
+    "api_key": OPENAI_API_KEY,
+    "max_retries": 0,
+    "timeout": OPENAI_TIMEOUT_SECONDS,
+}
+if OPENAI_BASE_URL:
+    _client_kwargs["base_url"] = OPENAI_BASE_URL
+
+client = OpenAI(**_client_kwargs)
+async_client = AsyncOpenAI(**_client_kwargs)
 
 try:
     from agents import set_default_openai_client, set_tracing_disabled
@@ -144,11 +152,11 @@ except ImportError:
 try:
     from agents import OpenAIChatCompletionsModel
     model = OpenAIChatCompletionsModel(
-        model="llama-3.1-8b-instant",
+        model=OPENAI_MODEL,
         openai_client=async_client
     )
 except ImportError:
-    model = "llama-3.1-8b-instant"
+    model = OPENAI_MODEL
 
 agent = Agent(
     name="PostClinicsReceptionist",

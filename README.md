@@ -7,7 +7,7 @@
   [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
   [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
   [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-  [![OpenAI](https://img.shields.io/badge/Groq_LLama_3.1-black?style=for-the-badge&logo=openai&logoColor=white)](https://groq.com/)
+  [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-black?style=for-the-badge&logo=openai&logoColor=white)](https://platform.openai.com/)
 </div>
 
 <br />
@@ -27,7 +27,7 @@ O **POST_clinics** é um sistema Full-Stack projetado para modernizar o fluxo de
 ## 🛠️ Arquitetura & Stack Técnica
 
 ### Backend (Python/FastAPI)
-- **Engine de IA:** `openai-agents` com modelos Llama-3.1 via Groq.
+- **Engine de IA:** `openai-agents` com modelo `gpt-4o-mini`.
 - **Persistência:** SQLModel (SQLite) com migrações assíncronas.
 - **RAG & Vetores:** Busca semântica para base de conhecimento.
 - **Performance:** Uso de `BackgroundTasks` e `asyncio.Locks` para debouncing de mensagens concorrentes.

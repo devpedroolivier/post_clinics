@@ -7,7 +7,7 @@ from sqlmodel import Session, delete, select
 from src.application.tools import _check_availability, _get_available_services, _schedule_appointment
 from src.api.routes import webhooks
 from src.domain.models import Appointment, NotificationLog, Patient
-from src.infrastructure.database import engine
+from src.infrastructure.database import create_db_and_tables, engine
 
 
 class _FakeRunnerResult:
@@ -17,6 +17,7 @@ class _FakeRunnerResult:
 
 @pytest.fixture(autouse=True)
 def clean_db_and_webhook_state():
+    create_db_and_tables()
     with Session(engine) as session:
         session.exec(delete(NotificationLog))
         session.exec(delete(Appointment))
@@ -26,6 +27,7 @@ def clean_db_and_webhook_state():
     webhooks._phone_out_of_scope_attempts.clear()
     webhooks._phone_timestamps.clear()
     webhooks._seen_messages.clear()
+    webhooks._phone_handoff_until.clear()
     yield
 
 

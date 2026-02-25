@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import os
+import pytest
 
 sys.path.append(os.getcwd())
 
@@ -12,7 +13,10 @@ from src.application.agent import agent, async_client
 from src.core.config import DATA_DIR
 from agents import OpenAIChatCompletionsModel
 
-async def test_hallucination_safeguards():
+RUN_LIVE_LLM_TESTS = os.getenv("RUN_LIVE_LLM_TESTS", "0") == "1"
+
+
+async def _run_hallucination_safeguards():
     # Patch agent model to avoid rate limits
     agent.model = OpenAIChatCompletionsModel(
         model="llama-3.1-8b-instant",
@@ -76,5 +80,12 @@ async def test_hallucination_safeguards():
     else:
         print("❌ Test 2 Failed: Agent might have hallucinated.")
 
+
+def test_hallucination_safeguards():
+    if not RUN_LIVE_LLM_TESTS:
+        pytest.skip("Live LLM test disabled. Set RUN_LIVE_LLM_TESTS=1 to enable.")
+    asyncio.run(_run_hallucination_safeguards())
+
+
 if __name__ == "__main__":
-    asyncio.run(test_hallucination_safeguards())
+    asyncio.run(_run_hallucination_safeguards())

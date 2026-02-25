@@ -7,9 +7,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+_client_kwargs = {"api_key": OPENAI_API_KEY}
+if OPENAI_BASE_URL:
+    _client_kwargs["base_url"] = OPENAI_BASE_URL
+
 client = AsyncOpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("GROQ_API_KEY")
+    **_client_kwargs
 )
 
 from src.core.config import DATA_DIR
@@ -28,7 +35,7 @@ async def summarize_learning(messages_str: str) -> str:
     
     try:
         completion = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1
         )
