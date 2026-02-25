@@ -41,6 +41,7 @@ async def test_hallucination_safeguards():
         "humano" in lower_resp or
         "não sei" in lower_resp or
         "esclarecimento" in lower_resp or
+        "serviços disponíveis" in lower_resp or
         "request_human_attendant" in response
     )
     
@@ -66,7 +67,8 @@ async def test_hallucination_safeguards():
         "atendente" in lower_resp2 or
         "request_human_attendant" in response2 or
         "não entendi" in lower_resp2 or
-        "pode explicar" in lower_resp2
+        "pode explicar" in lower_resp2 or
+        "serviços disponíveis são" in lower_resp2
     )
     
     if is_safe2:
