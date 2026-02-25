@@ -1,5 +1,0 @@
-INFO:PostClinics.Webhook:[INTENT] Mapped 'SIM' -> 'Quero confirmar minha consulta'
-INFO:PostClinics.Webhook:[WPP:IN] phone=5511940619930 msgId=ACE8F29DF0150B2333D7F1FD124860DA text=Boa tarde,  Sim
-INFO:PostClinics.Webhook:[WPP:IN] phone=5511940619930 msgId=ACB0ABEFC36138041C0FD40949B332E7 text=Sim.
-INFO:PostClinics.Webhook:[INTENT] Mapped 'SIM' -> 'Quero confirmar minha consulta'
-INFO:PostClinics.Webhook:[WPP:IN] phone=5511940619930 msgId=ACDDA85EB11791EAB1EA731FD7E15899 text=Ortondontia

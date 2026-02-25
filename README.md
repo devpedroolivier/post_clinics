@@ -1,158 +1,80 @@
 <div align="center">
-  <img src="https://via.placeholder.com/150x150?text=Logo+Here" alt="POST Clinics Logo" width="150" height="150" />
-  <h1>POST Clinics System</h1>
-  <p><strong>A full-stack, AI-powered platform for scheduling and managing clinical appointments.</strong></p>
+  <img src="https://img.icons8.com/wired/128/health-data.png" alt="POST Clinics Logo" width="100" />
+  <h1>POST_clinics</h1>
+  <p><strong>Ecossistema de Gestão Clínica Inteligente & IA Receptionist</strong></p>
 
-  [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+  [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
   [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-  [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-  [![OpenAI](https://img.shields.io/badge/OpenAI-412991.svg?style=for-the-badge&logo=OpenAI&logoColor=white)](https://openai.com/)
+  [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+  [![OpenAI](https://img.shields.io/badge/Groq_LLama_3.1-black?style=for-the-badge&logo=openai&logoColor=white)](https://groq.com/)
 </div>
 
 <br />
 
-## 📖 About the Project
+## 📖 Visão Geral
 
-**POST Clinics System** is a modern, containerized web application designed to digitalize and streamline the workflow of medical and therapeutic clinics. It features a robust Python/FastAPI backend, an interactive React frontend dashboard, and is integrated with AI capabilities to automate scheduling tasks and act as a virtual receptionist.
+O **POST_clinics** é um sistema Full-Stack projetado para modernizar o fluxo de agendamentos em clínicas médicas e terapêuticas. Mais do que um simples CRUD, o projeto integra um **Agente de IA (Virtual Receptionist)** que gerencia conversas reais via WhatsApp, processa intenções de agendamento e interage com o banco de dados da clínica de forma autônoma e segura.
 
-### ✨ Key Features
-- **Interactive Dashboard:** built with React and Vite, featuring a responsive and intuitive layout.
-- **Dynamic Calendar (FullCalendar):** robust patient appointment and schedule management.
-- **AI Integration (OpenAI Agents):** smart conversational agents to automate patient support and scheduling.
-- **Fast & Scalable REST API:** built on top of FastAPI and Pydantic.
-- **Asynchronous Database:** utilizing SQLite (via `aiosqlite`) strictly managed by SQLModel.
-- **Production-Ready Containerization:** Dockerized setup handling App, Nginx reverse proxy, and SSL generation (Certbot).
+## ✨ Funcionalidades Core
 
----
+- 🤖 **IA Receptionist (Cora):** Agente inteligente que realiza triagem, agendamentos, cancelamentos e tira dúvidas clínicas via WhatsApp/Z-API.
+- 🧠 **Memória de Longo Prazo (RAG):** Armazenamento vetorial para busca de informações sobre a clínica e preferências dos pacientes.
+- 📅 **Dashboard de Gestão:** Painel em React com visual moderno para controle de agenda, tarefas e pacientes.
+- ⚡ **Alta Performance:** Processamento assíncrono de webhooks para resposta imediata ao usuário, evitando gargalos de API.
+- 🔒 **Arquitetura Limpa:** Separação rígida de responsabilidades entre Domínio, Aplicação e Infraestrutura.
 
-## 🛠️ Tech Stack
+## 🛠️ Arquitetura & Stack Técnica
 
-### Backend
-- **Framework:** FastAPI
-- **Database ORM:** SQLModel / aiosqlite
-- **AI Integration:** openai-agents
-- **Dependencies:** Uvicorn, Requests, Python-dotenv
+### Backend (Python/FastAPI)
+- **Engine de IA:** `openai-agents` com modelos Llama-3.1 via Groq.
+- **Persistência:** SQLModel (SQLite) com migrações assíncronas.
+- **RAG & Vetores:** Busca semântica para base de conhecimento.
+- **Performance:** Uso de `BackgroundTasks` e `asyncio.Locks` para debouncing de mensagens concorrentes.
 
-### Frontend
-- **Framework:** React / TypeScript
-- **Bundler:** Vite
-- **UI & Interaction:** FullCalendar (timegrid, daygrid, list views)
+### Frontend (React/TypeScript)
+- **UI:** TailwindCSS & Framer Motion para experiências fluidas.
+- **Componentes:** FullCalendar para visualização densa de agendas.
+- **State:** Gerenciamento eficiente com Hooks customizados.
 
-### Infrastructure
-- **Containerization:** Docker & Docker Compose
-- **Proxy & Security:** Nginx, Certbot (Let's Encrypt SSL)
+### Infraestrutura & DevOps
+- **Deploy:** Docker Compose (Prod e Dev) com Nginx Reverse Proxy.
+- **Segurança:** SSL automático via Certbot (Let's Encrypt).
+- **CI/CD:** Preparado para deploys automatizados em VPS.
 
----
+## 🚀 Destaque Técnico: Resiliência e Concorrência
 
-## 📷 Screenshots / Demo
-*(Add screenshots or GIFs of your dashboard, calendar view, and AI interaction here to make your portfolio pop!)*
+Um dos diferenciais deste projeto é o tratamento de **Race Conditions** em chats de IA. Implementamos um sistema de **locks por número de telefone**:
+- Impede que múltiplas mensagens simultâneas do mesmo usuário disparem agens concorrentes corrompendo o contexto.
+- Garante processamento sequencial e determinístico das intenções do paciente.
 
-<details>
-<summary>Click to view Screenshots</summary>
+## 📂 Estrutura do Projeto
 
-*Placeholder for Calendar View*  
-![Calendar](https://via.placeholder.com/800x400?text=Interactive+Calendar+View)
+```text
+📁 src/                  # Backend: Domain, Application, Infrastructure
+├── 📁 api/              # Rotas FastAPI e Webhooks
+├── 📁 application/      # Lógica de Agentes e Ferramentas
+├── 📁 infrastructure/   # DB e Integrações Externas (Z-API)
+📁 dashboard/            # Frontend: React + Vite App
+📁 docs/                 # Relatórios Técnicos e Design
+📁 tests/                # Cobertura de Testes (Unit, E2E, Anti-Hallucination)
+```
 
-*Placeholder for AI Agent Interface*  
-![AI Interface](https://via.placeholder.com/800x400?text=Virtual+Receptionist+Chat)
+## 💻 Como Rodar
 
-</details>
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- [Docker](https://www.docker.com/get-started) and Docker Compose
-- [Node.js](https://nodejs.org/en) & npm (for local frontend development)
-- [Python 3.11+](https://www.python.org/downloads/) (for local backend development)
-
-### Local Development
-
-1. **Clone the repository:**
+1. **Clone & Env:**
    ```bash
-   git clone https://github.com/your-username/post-clinics.git
-   cd post-clinics
-   ```
-
-2. **Environment Configuration:**
-   Copy the example environment file and insert your API keys (e.g., OpenAI API Key).
-   ```bash
+   git clone https://github.com/seu-user/post_clinics.git
    cp .env.example .env
    ```
-
-3. **Running the Application (Dockerized):**
+2. **Docker Compose:**
    ```bash
    docker-compose up --build
    ```
-   - **Backend API Docs (Swagger):** `http://localhost:8000/docs`
-   - **Frontend Dashboard:** `http://localhost:5173` (or port specified in compose file)
-
----
-
-## 🌐 Production Deployment (VPS)
-
-To deploy on a VPS (e.g., Hostinger / AWS / DigitalOcean) using Nginx and automatic SSL:
-
-### Setup Requirements
-- Docker & Docker Compose installed on VPS.
-- Domain `clinics.posolutionstech.com.br` pointing to your VPS IP Address (`A` Record).
-
-### Steps
-1. **Clone the repository on the server.**
-2. **Create the production `.env` file** based on `.env.example`.
-3. **Initialize SSL & Start the Stack:**
-   The `docker-compose.prod.yml` spins up the Application, Nginx reverse proxy, and Certbot for SSL termination.
-   ```bash
-   chmod +x init-letsencrypt.sh
-   ./init-letsencrypt.sh
-   
-   # Or using docker-compose directly:
-   docker-compose -f docker-compose.prod.yml up -d --build
-   ```
-
----
-
-## 📂 Project Structure
-
-```text
-📁 post_clinics/
-├── 📁 src/                  # FastAPI Backend Source Code
-│   ├── main.py              # Application Entry Point
-│   ├── database.py          # SQLModel Database connection
-│   ├── agent.py             # AI Agent implementation (OpenAI)
-│   ├── scheduler.py         # Job Scheduler logic
-│   ├── tools.py             # Agent tools & functions
-│   └── zapi.py              # External integrations
-├── 📁 dashboard/            # React + Vite Frontend Application
-│   ├── src/
-│   └── package.json
-├── 📁 nginx/                # Production Reverse Proxy configurations
-├── 📁 scripts/              # Useful shell & automation scripts
-├── docker-compose.yml       # Local Development Compose File
-├── docker-compose.prod.yml  # Production Compose File
-└── init-letsencrypt.sh      # SSL Generation Script
-```
-
----
-
-## 🤝 Contributing
-Contributions, issues, and feature requests are welcome!
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📜 License
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+   Acesse o Dashboard em `http://localhost:5173` e a documentação da API em `http://localhost:8000/docs`.
 
 ---
 
 <div align="center">
-  <b>Developed by</b> <a href="https://github.com/your-username">Your Name/Posolutions Tech</a> 🚀
+  Desenvolvido por <strong>Pedro Olivier / Posolutions Tech</strong> 🚀
 </div>
