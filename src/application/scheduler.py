@@ -14,6 +14,8 @@ from src.infrastructure.database import engine, create_db_and_tables
 from src.domain.models import Appointment, Patient, NotificationLog
 from src.infrastructure.services.zapi import send_message
 from src.core.config import CLINIC_CONFIG
+from src.application.services.patient_identity import get_contact_phone
+from src.application.services.appointment_status import normalize_status
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,7 +66,7 @@ async def check_and_send_reminders():
     with Session(engine) as session:
         # Fetch only active appointments that are in the future
         statement = select(Appointment, Patient).join(Patient).where(
-            Appointment.status.in_(["confirmed", "scheduled"]),
+            Appointment.status.in_(["confirmed", "scheduled", "rescheduled"]),
             Appointment.datetime > now_naive,
         )
         results = session.exec(statement).all()
@@ -84,9 +86,10 @@ async def check_and_send_reminders():
                 elif 18 <= hours_until <= 25:
                     # Within normal 24h threshold
                     message = get_reminder_message_24h(patient.name, appointment.datetime, appointment.service)
-                    logger.info(f"Attempting 24h reminder for {patient.name} ({patient.phone}) - Appt {appointment.id}")
+                    patient_phone = get_contact_phone(patient)
+                    logger.info(f"Attempting 24h reminder for {patient.name} ({patient_phone}) - Appt {appointment.id}")
                     
-                    res = await send_message(patient.phone, message)
+                    res = await send_message(patient_phone, message)
                     log = NotificationLog(
                         appointment_id=appointment.id,
                         notification_type="24h",
@@ -95,6 +98,9 @@ async def check_and_send_reminders():
                     )
                     session.add(log)
                     if res["success"]:
+                        if normalize_status(appointment.status) == "confirmed":
+                            # Move to pending after sending confirmation request.
+                            appointment.status = "scheduled"
                         appointment.notified_24h = True
                         session.add(appointment)
                         sent_count += 1
@@ -103,9 +109,10 @@ async def check_and_send_reminders():
             # --- 3h Reminder Logic ---
             if not appointment.notified_3h and 0.5 <= hours_until <= 3.5:
                 message = get_reminder_message_3h(patient.name, appointment.datetime, appointment.service)
-                logger.info(f"Attempting 3h reminder for {patient.name} ({patient.phone}) - Appt {appointment.id}")
+                patient_phone = get_contact_phone(patient)
+                logger.info(f"Attempting 3h reminder for {patient.name} ({patient_phone}) - Appt {appointment.id}")
                 
-                res = await send_message(patient.phone, message)
+                res = await send_message(patient_phone, message)
                 log = NotificationLog(
                     appointment_id=appointment.id,
                     notification_type="3h",

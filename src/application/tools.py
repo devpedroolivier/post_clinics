@@ -5,6 +5,12 @@ from sqlmodel import Session, select
 from src.infrastructure.database import engine
 from src.domain.models import Appointment, Patient
 from src.core.config import CLINIC_CONFIG
+from src.application.services.patient_identity import (
+    find_patients_by_contact,
+    resolve_patient_for_contact,
+)
+from src.application.services.service_catalog import canonicalize_service_name
+from src.application.services.appointment_status import normalize_status
 from src.infrastructure.vector_store import search_store
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
@@ -16,16 +22,17 @@ def get_service_info(service_name: str) -> dict:
     default_resp = {"duration": 45, "professional": "Clínica Geral"}
     if not service_name:
         return default_resp
+    service_name = canonicalize_service_name(service_name)
         
     services = CLINIC_CONFIG.get("services", [])
-    service_names = [s["name"] for s in services]
+    service_names = [canonicalize_service_name(s["name"]) for s in services]
     
     # 1. Exact or close match
     matches = difflib.get_close_matches(service_name, service_names, n=1, cutoff=0.6)
     if matches:
         best_match = matches[0]
         for s in services:
-            if s["name"] == best_match:
+            if canonicalize_service_name(s["name"]) == best_match:
                 return {
                     "duration": s.get("duration", 45),
                     "professional": s.get("professional", "Clínica Geral")
@@ -33,7 +40,8 @@ def get_service_info(service_name: str) -> dict:
                 
     # 2. Substring fallback
     for s in services:
-        if service_name.lower() in s["name"].lower() or s["name"].lower() in service_name.lower():
+        canonical = canonicalize_service_name(s["name"])
+        if service_name.lower() in canonical.lower() or canonical.lower() in service_name.lower():
             return {
                 "duration": s.get("duration", 45),
                 "professional": s.get("professional", "Clínica Geral")
@@ -44,6 +52,7 @@ def get_service_info(service_name: str) -> dict:
 # --- Core Logic Functions (Undecorated for Testing) ---
 
 def _check_availability(date_str: str, service_name: str = "Clínica Geral") -> str:
+    service_name = canonicalize_service_name(service_name)
     now = datetime.now(BR_TZ).date()
     try:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -145,7 +154,14 @@ def _check_availability(date_str: str, service_name: str = "Clínica Geral") -> 
     formatted_slots = [s.strftime("%H:%M") for s in selected]
     return f"Horários disponíveis para {service_name} (Profissional: {professional}) em {date_str}: {', '.join(formatted_slots)}"
 
-def _schedule_appointment(name: str, phone: str, datetime_str: str, service_name: str = "Clínica Geral") -> str:
+def _schedule_appointment(
+    name: str,
+    phone: str,
+    datetime_str: str,
+    service_name: str = "Clínica Geral",
+    responsible_name: str | None = None,
+) -> str:
+    service_name = canonicalize_service_name(service_name)
     try:
         appt_dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
     except ValueError:
@@ -156,12 +172,12 @@ def _schedule_appointment(name: str, phone: str, datetime_str: str, service_name
     professional = info["professional"]
 
     with Session(engine) as session:
-        patient = session.exec(select(Patient).where(Patient.phone == phone)).first()
-        if not patient:
-            patient = Patient(name=name, phone=phone)
-            session.add(patient)
-            session.commit()
-            session.refresh(patient)
+        patient = resolve_patient_for_contact(
+            session,
+            name=name,
+            phone=phone,
+            responsible_name=responsible_name,
+        )
             
         new_end = appt_dt + timedelta(minutes=duration_minutes)
         
@@ -202,16 +218,17 @@ def _confirm_appointment(appointment_id: int) -> str:
         appt = session.get(Appointment, appointment_id)
         if not appt:
             return "Agendamento não encontrado."
-        
-        if appt.status == "confirmed":
+
+        current_status = normalize_status(appt.status, default="scheduled")
+        if current_status == "confirmed":
             return f"Agendamento {appointment_id} já está confirmado."
-        
-        if appt.status in ("scheduled", "cancelled"):
+
+        if current_status in ("scheduled", "rescheduled"):
             appt.status = "confirmed"
             session.add(appt)
             session.commit()
             return f"Agendamento {appointment_id} confirmado com sucesso!"
-        
+
         return f"Agendamento {appointment_id} está com status '{appt.status}' e não pode ser confirmado."
 
 def _cancel_appointment(appointment_id: int) -> str:
@@ -220,7 +237,7 @@ def _cancel_appointment(appointment_id: int) -> str:
         if not appt:
             return "Agendamento não encontrado."
             
-        if appt.status == "cancelled":
+        if normalize_status(appt.status, default="scheduled") == "cancelled":
             return "Este agendamento já está cancelado."
             
         appt.status = "cancelled"
@@ -240,7 +257,7 @@ def _reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
         if not appt:
             return "Agendamento não encontrado para reagendar."
             
-        if appt.status == "cancelled":
+        if normalize_status(appt.status, default="scheduled") == "cancelled":
             return "Não é possível reagendar um agendamento cancelado. Por favor, solicite um novo agendamento."
 
         info = get_service_info(appt.service)
@@ -267,6 +284,9 @@ def _reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
                 return f"Conflito de horário: Dr(a). {professional} já possui um agendamento das {coll.datetime.strftime('%H:%M')} às {coll_end.strftime('%H:%M')}."
 
         appt.datetime = new_dt
+        appt.status = "rescheduled"
+        appt.notified_24h = False
+        appt.notified_3h = False
         session.add(appt)
         session.commit()
         session.refresh(appt)
@@ -278,31 +298,42 @@ def _get_available_services() -> str:
     for s in CLINIC_CONFIG["services"]:
         duration = s["duration"]
         note = f" ({s['note']})" if "note" in s else ""
-        services_list.append(f"- {s['name']}{note}")
+        services_list.append(f"- {canonicalize_service_name(s['name'])}{note}")
     return "Serviços disponíveis na clínica:\n" + "\n".join(services_list)
 
 WEEKDAYS_PT = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
 
 def _find_patient_appointments(phone: str) -> str:
     with Session(engine) as session:
-        patient = session.exec(select(Patient).where(Patient.phone == phone)).first()
-        if not patient:
+        patients = find_patients_by_contact(session, phone)
+        if not patients:
+            return "Nenhum paciente encontrado com esse telefone."
+        patient_ids = [p.id for p in patients if p.id is not None]
+        if not patient_ids:
             return "Nenhum paciente encontrado com esse telefone."
         
         statement = select(Appointment).where(
-            Appointment.patient_id == patient.id,
+            Appointment.patient_id.in_(patient_ids),
             Appointment.status != "cancelled"
         ).order_by(Appointment.datetime)
         appointments = session.exec(statement).all()
         
         if not appointments:
-            return f"Nenhum agendamento ativo encontrado para {patient.name}."
+            return "Nenhum agendamento ativo encontrado para esse contato."
         
-        lines = [f"Agendamentos de {patient.name}:"]
+        patient_name_map = {p.id: p.name for p in patients}
+        if len(patient_name_map) == 1:
+            lines = [f"Agendamentos de {next(iter(patient_name_map.values()))}:"]
+        else:
+            lines = ["Agendamentos vinculados a este contato:"]
+
         for appt in appointments:
             weekday = WEEKDAYS_PT.get(appt.datetime.weekday(), "")
             date_str = appt.datetime.strftime("%d/%m/%Y às %H:%M")
-            lines.append(f"- [INTERNAL_ID:{appt.id}] {weekday}, {date_str} | {appt.service} | Status: {appt.status}")
+            patient_name = patient_name_map.get(appt.patient_id, "Paciente")
+            lines.append(
+                f"- [INTERNAL_ID:{appt.id}] {patient_name} | {weekday}, {date_str} | {canonicalize_service_name(appt.service)} | Status: {appt.status}"
+            )
         
         return "\n".join(lines)
 
@@ -315,9 +346,15 @@ def check_availability(date_str: str, service_name: str = "Clínica Geral") -> s
     return _check_availability(date_str, service_name)
 
 @function_tool
-def schedule_appointment(name: str, phone: str, datetime_str: str, service_name: str = "Clínica Geral") -> str:
+def schedule_appointment(
+    name: str,
+    phone: str,
+    datetime_str: str,
+    service_name: str = "Clínica Geral",
+    responsible_name: str | None = None,
+) -> str:
     """Schedule a new appointment for a patient."""
-    return _schedule_appointment(name, phone, datetime_str, service_name)
+    return _schedule_appointment(name, phone, datetime_str, service_name, responsible_name)
 
 @function_tool
 def confirm_appointment(appointment_id: int) -> str:

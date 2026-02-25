@@ -20,11 +20,15 @@ type Appointment = {
     service: string;
     professional: string;
     status: string;
+    status_label?: string;
+    status_color?: string;
+    status_description?: string;
+    calendar_description?: string;
 };
 
 // Custom Event Render for Minimalist UI
 function renderEventContent(eventInfo: any) {
-    const isConfirmed = eventInfo.event.extendedProps.status === 'confirmed';
+    const statusColor = eventInfo.event.extendedProps.statusColor || '#F59E0B';
     const professional = eventInfo.event.extendedProps.professional;
     const viewType = eventInfo.view.type;
 
@@ -33,7 +37,7 @@ function renderEventContent(eventInfo: any) {
         return (
             <div className="w-full h-full overflow-hidden text-ellipsis px-1.5 py-0.5 flex flex-col justify-center" title={`${eventInfo.event.title} (${professional})`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor }}></div>
                     <b className="font-bold text-[10px] md:text-xs tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
                 </div>
                 <span className="font-semibold text-[11px] md:text-xs truncate text-brand-text-primary leading-tight">
@@ -49,7 +53,7 @@ function renderEventContent(eventInfo: any) {
         return (
             <div className="w-full h-full overflow-hidden flex flex-col justify-start p-1.5 md:p-2.5 m-[1px] shadow-sm rounded-sm" title={`${eventInfo.event.title} (${professional})`}>
                 <div className="flex items-center gap-2 mb-1 border-b border-black/5 pb-1 w-full">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }}></div>
                     <b className="font-bold text-xs md:text-sm tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
                 </div>
                 <div className="flex flex-col gap-0.5 mt-1">
@@ -181,24 +185,25 @@ export const Dashboard = () => {
     };
 
     const events = appointments.map(apt => {
-        let bgColor = '#FFFFFF'; // Default pending background (white)
-
-        if (apt.status === 'confirmed') {
-            // Faint pastels for confirmed, distinguished by professional
-            if (apt.professional === 'Dra. Débora' || apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#FCE7F3'; // Minimalist Pink
-            else if (apt.professional === 'Dr. Sidney') bgColor = '#D1FAE5'; // Minimalist Mint
-            else if (apt.professional === 'Dr. Ewerton') bgColor = '#DBEAFE'; // Minimalist Blue (Orthodontics)
-            else bgColor = '#D1FAE5'; // Minimalist Green fallback
-        }
+        const statusColor = apt.status_color || '#F59E0B';
 
         return {
             id: apt.id,
             title: apt.patient_name,
             start: apt.datetime,
-            extendedProps: { phone: apt.patient_phone, service: apt.service, professional: apt.professional, status: apt.status },
-            backgroundColor: bgColor,
+            extendedProps: {
+                phone: apt.patient_phone,
+                service: apt.service,
+                professional: apt.professional,
+                status: apt.status,
+                statusLabel: apt.status_label || apt.status,
+                statusColor: statusColor,
+                statusDescription: apt.status_description || '',
+                description: apt.calendar_description || '',
+            },
+            backgroundColor: `${statusColor}22`,
             textColor: '#111827', // Always dark text
-            borderColor: apt.status === 'confirmed' ? 'transparent' : '#E5E7EB', // Faint border if pending
+            borderColor: statusColor,
         };
     });
 
@@ -235,6 +240,13 @@ export const Dashboard = () => {
                         </div>
 
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-brand-border/50">
+                            <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-brand-text-secondary">
+                                <span className="font-semibold text-brand-text-primary">Legenda:</span>
+                                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#16A34A' }}></span>Confirmado</span>
+                                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#F59E0B' }}></span>Pendente</span>
+                                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#2563EB' }}></span>Reagendado</span>
+                                <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#DC2626' }}></span>Cancelado</span>
+                            </div>
                             <FullCalendar
                                 ref={calendarRef}
                                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -280,9 +292,12 @@ export const Dashboard = () => {
                             </div>
                             <div>
                                 <label className="text-xs font-semibold uppercase tracking-wider text-brand-text-secondary mb-1 block">Status</label>
-                                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm ${selectedEvent.extendedProps.status === 'confirmed' ? 'bg-brand-success' : 'bg-brand-text-secondary'}`}>
-                                    {selectedEvent.extendedProps.status === 'confirmed' ? 'Confirmado' : 'Aguardando'}
+                                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm" style={{ backgroundColor: selectedEvent.extendedProps.statusColor || '#6B7280' }}>
+                                    {selectedEvent.extendedProps.statusLabel || selectedEvent.extendedProps.status}
                                 </span>
+                                {selectedEvent.extendedProps.description && (
+                                    <div className="text-xs text-brand-text-secondary mt-2">{selectedEvent.extendedProps.description}</div>
+                                )}
                             </div>
                         </div>
 
@@ -319,7 +334,7 @@ export const Dashboard = () => {
                             <div>
                                 <label className="form-label">Serviço</label>
                                 <select className="input-field" value={formData.service} onChange={e => setFormData({ ...formData, service: e.target.value })}>
-                                    {["Odontopediatria (1ª vez)", "Odontopediatria (Retorno)", "Pacientes Especiais (1ª vez)", "Pacientes Especiais (Retorno)", "Implante", "Clínica Geral", "Ortodontia", "Fonoaudióloga miofuncional"].map(s => (
+                                    {["Odontopediatria (1ª vez)", "Odontopediatria (Consulta)", "Pacientes Especiais (1ª vez)", "Pacientes Especiais (Retorno)", "Implante", "Clínica Geral", "Ortodontia", "Fonoaudióloga miofuncional"].map(s => (
                                         <option key={s} value={s}>{s}</option>
                                     ))}
                                 </select>

@@ -6,6 +6,16 @@ from src.core.security import verify_token
 from src.infrastructure.database import engine
 from src.domain.models import Appointment, Patient
 from src.domain.schemas import AppointmentCreate, AppointmentUpdate
+from src.application.services.appointment_status import (
+    build_status_legend_description,
+    get_status_metadata,
+    normalize_status,
+)
+from src.application.services.patient_identity import (
+    get_contact_phone,
+    resolve_patient_for_contact,
+)
+from src.application.services.service_catalog import canonicalize_service_name
 
 router = APIRouter(prefix="/api/appointments", tags=["Appointments"], dependencies=[Depends(verify_token)])
 
@@ -23,14 +33,20 @@ async def get_appointments(include_cancelled: bool = False):
         
         appointments = []
         for appointment, patient in results:
+            status_meta = get_status_metadata(appointment.status)
             appointments.append({
                 "id": appointment.id,
                 "patient_name": patient.name,
-                "patient_phone": patient.phone,
+                "patient_phone": get_contact_phone(patient),
+                "responsible_name": patient.responsible_name,
                 "datetime": appointment.datetime.isoformat(),
-                "service": appointment.service,
+                "service": canonicalize_service_name(appointment.service),
                 "professional": appointment.professional,
-                "status": appointment.status,
+                "status": status_meta["status"],
+                "status_label": status_meta["label"],
+                "status_color": status_meta["color"],
+                "status_description": status_meta["description"],
+                "calendar_description": build_status_legend_description(status_meta["status"]),
                 "created_at": appointment.created_at.isoformat()
             })
         
@@ -47,21 +63,19 @@ async def create_appointment(data: AppointmentCreate):
         raise HTTPException(status_code=400, detail="Invalid datetime format")
 
     with Session(engine) as session:
-        statement = select(Patient).where(Patient.phone == data.patient_phone)
-        patient = session.exec(statement).first()
-        
-        if not patient:
-            patient = Patient(name=data.patient_name, phone=data.patient_phone)
-            session.add(patient)
-            session.commit()
-            session.refresh(patient)
+        patient = resolve_patient_for_contact(
+            session,
+            name=data.patient_name,
+            phone=data.patient_phone,
+            responsible_name=data.responsible_name,
+        )
             
         appointment = Appointment(
             patient_id=patient.id,
             datetime=dt,
-            service=data.service,
+            service=canonicalize_service_name(data.service),
             professional=data.professional,
-            status="confirmed"
+            status=normalize_status(data.status, default="scheduled")
         )
         session.add(appointment)
         session.commit()
@@ -86,22 +100,28 @@ async def update_appointment(appointment_id: int, data: AppointmentUpdate):
                raise HTTPException(status_code=400, detail="Invalid datetime format")
         
         if data.status:
-            appointment.status = data.status
+            appointment.status = normalize_status(data.status, default=appointment.status)
 
         if data.service:
-            appointment.service = data.service
+            appointment.service = canonicalize_service_name(data.service)
 
         if data.professional:
             appointment.professional = data.professional
 
-        if data.patient_name or data.patient_phone:
-            patient = session.get(Patient, appointment.patient_id)
-            if patient:
-                if data.patient_name:
-                    patient.name = data.patient_name
-                if data.patient_phone:
-                    patient.phone = data.patient_phone
-                session.add(patient)
+        if data.patient_name or data.patient_phone or data.responsible_name is not None:
+            current_patient = session.get(Patient, appointment.patient_id)
+            if current_patient:
+                resolved_patient = resolve_patient_for_contact(
+                    session,
+                    name=data.patient_name or current_patient.name,
+                    phone=data.patient_phone or get_contact_phone(current_patient),
+                    responsible_name=(
+                        data.responsible_name
+                        if data.responsible_name is not None
+                        else current_patient.responsible_name
+                    ),
+                )
+                appointment.patient_id = resolved_patient.id
 
         session.add(appointment)
         session.commit()

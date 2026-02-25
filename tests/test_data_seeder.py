@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.infrastructure.database import engine, create_db_and_tables
 from src.domain.models import Appointment, Patient
+from src.application.services.patient_identity import find_patients_by_contact
 import logging
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
@@ -22,10 +23,11 @@ def seed_appointment(date_str, time_str, patient_name="Test Patient", patient_ph
         # Check/Create Patient
         try:
             print(f"Engine URL: {engine.url}")
-            patient = session.exec(select(Patient).where(Patient.phone == patient_phone)).first()
+            matches = find_patients_by_contact(session, patient_phone)
+            patient = next((p for p in matches if p.name == patient_name), None)
             if not patient:
                 print("Creating Patient...")
-                patient = Patient(name=patient_name, phone=patient_phone)
+                patient = Patient(name=patient_name, phone=patient_phone, contact_phone=patient_phone)
                 session.add(patient)
                 print("Committing Patient...")
                 session.commit()
@@ -54,15 +56,13 @@ def clear_test_data(phone="5511999999999"):
     Removes test data associated with the test phone number.
     """
     with Session(engine) as session:
-        patient = session.exec(select(Patient).where(Patient.phone == phone)).first()
-        if patient:
-            # Delete appointments
+        patients = find_patients_by_contact(session, phone)
+        for patient in patients:
             appointments = session.exec(select(Appointment).where(Appointment.patient_id == patient.id)).all()
             for appt in appointments:
                 session.delete(appt)
-            
-            # Delete patient
             session.delete(patient)
+        if patients:
             session.commit()
             print(f"Cleared data for phone {phone}")
 

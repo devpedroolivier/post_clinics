@@ -20,7 +20,7 @@ export const loginCall = async (credentials: any) => {
 };
 
 export const fetchAppointments = async () => {
-    const response = await fetch(`${API_BASE_URL}/api/appointments`, {
+    const response = await fetch(`${API_BASE_URL}/api/appointments?include_cancelled=true`, {
         headers: getHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch appointments');

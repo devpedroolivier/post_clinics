@@ -6,7 +6,7 @@ from src.core.config import DATA_DIR
 from src.infrastructure.database import create_db_and_tables
 
 def migrate_db():
-    print("Starting database migration for Notification Flags...")
+    print("Starting database migration...")
     
     db_path = os.path.join(DATA_DIR, "post_clinics.db")
     if not os.path.exists(db_path):
@@ -18,7 +18,7 @@ def migrate_db():
     cursor = conn.cursor()
     
     try:
-        # Check existing columns
+        # Check existing columns on appointment
         cursor.execute("PRAGMA table_info(appointment)")
         columns = [info[1] for info in cursor.fetchall()]
         print(f"Current columns: {columns}")
@@ -43,6 +43,41 @@ def migrate_db():
             cursor.execute("ALTER TABLE appointment ADD COLUMN professional VARCHAR DEFAULT 'Clínica Geral'")
         else:
             print("'professional' already exists.")
+
+        # Check existing columns on patient
+        cursor.execute("PRAGMA table_info(patient)")
+        patient_columns = [info[1] for info in cursor.fetchall()]
+        print(f"Current patient columns: {patient_columns}")
+
+        if "contact_phone" not in patient_columns:
+            print("Adding 'contact_phone' column...")
+            cursor.execute("ALTER TABLE patient ADD COLUMN contact_phone VARCHAR")
+        else:
+            print("'contact_phone' already exists.")
+
+        if "responsible_name" not in patient_columns:
+            print("Adding 'responsible_name' column...")
+            cursor.execute("ALTER TABLE patient ADD COLUMN responsible_name VARCHAR")
+        else:
+            print("'responsible_name' already exists.")
+
+        print("Backfilling patient.contact_phone from patient.phone when missing...")
+        cursor.execute(
+            """
+            UPDATE patient
+            SET contact_phone = phone
+            WHERE contact_phone IS NULL OR TRIM(contact_phone) = ''
+            """
+        )
+
+        print("Migrating legacy service names...")
+        cursor.execute(
+            """
+            UPDATE appointment
+            SET service = 'Odontopediatria (Consulta)'
+            WHERE LOWER(TRIM(service)) = 'odontopediatria (retorno)'
+            """
+        )
             
         conn.commit()
         

@@ -73,6 +73,41 @@ TOOL_MAP = {
 _seen_messages = {}
 _phone_timestamps = defaultdict(list)
 _phone_locks = {}
+_phone_out_of_scope_attempts = defaultdict(int)
+
+SCOPE_PATTERN = re.compile(
+    r"\b(agendar|agendamento|marcar|consulta|hor[aá]rio|servi[cç]o|reagendar|cancelar|confirmar|desmarcar)\b"
+)
+GREETING_PATTERN = re.compile(r"^(oi|ol[áa]|bom dia|boa tarde|boa noite)\b")
+HUMAN_REQUEST_PATTERN = re.compile(r"\b(atendente|humano|pessoa|recepcionista)\b")
+FINANCIAL_PATTERN = re.compile(r"\b(valor|pre[cç]o|financeiro|pagamento|cobran[cç]a|or[cç]amento)\b")
+COMPLAINT_PATTERN = re.compile(r"\b(reclama[cç][aã]o|reclamar|insatisfeit|ruim|péssimo|horr[ií]vel)\b")
+URGENCY_PATTERN = re.compile(r"\b(urg[êe]ncia|urgente|emerg[êe]ncia|dor forte|sangramento)\b")
+HANDOFF_REPLY = (
+    "Encaminhei você para um atendente humano. "
+    "Esse canal humano é indicado para: assuntos fora de agendamento/reagendamento/cancelamento, "
+    "dúvidas financeiras ou preços, reclamações e urgências."
+)
+
+
+def detect_handoff_reason(text: str) -> str | None:
+    normalized = (text or "").strip().lower()
+    if HUMAN_REQUEST_PATTERN.search(normalized):
+        return "Pedido explícito de atendente."
+    if URGENCY_PATTERN.search(normalized):
+        return "Mensagem com indício de urgência."
+    if FINANCIAL_PATTERN.search(normalized):
+        return "Dúvida financeira ou de preço."
+    if COMPLAINT_PATTERN.search(normalized):
+        return "Reclamação/insatisfação."
+    return None
+
+
+def is_in_supported_scope(text: str) -> bool:
+    normalized = (text or "").strip().lower()
+    if GREETING_PATTERN.search(normalized):
+        return True
+    return bool(SCOPE_PATTERN.search(normalized))
 
 def get_phone_lock(phone: str) -> asyncio.Lock:
     if phone not in _phone_locks:
@@ -101,6 +136,28 @@ async def process_webhook_payload(phone: str, message_id: str, text_content: str
                 
             # Pre-process short messages/emojis into explicit intent phrases
             text_content = preprocess_intent(text_content)
+
+            handoff_reason = detect_handoff_reason(text_content)
+            if handoff_reason:
+                logger.info(f"[HANDOFF] phone={phone} reason={handoff_reason}")
+                await send_message(phone, HANDOFF_REPLY)
+                _phone_out_of_scope_attempts[phone] = 0
+                return
+
+            if is_in_supported_scope(text_content):
+                _phone_out_of_scope_attempts[phone] = 0
+            else:
+                _phone_out_of_scope_attempts[phone] += 1
+                logger.info(
+                    "[SCOPE] phone=%s out_of_scope_attempt=%s text=%s",
+                    phone,
+                    _phone_out_of_scope_attempts[phone],
+                    text_content[:120],
+                )
+                if _phone_out_of_scope_attempts[phone] >= 2:
+                    await send_message(phone, HANDOFF_REPLY)
+                    _phone_out_of_scope_attempts[phone] = 0
+                    return
             
             # Inject patient phone into context so agent can look up appointments
             agent_input = f"Telefone do paciente: {phone}\n{prefs}\n{text_content}"

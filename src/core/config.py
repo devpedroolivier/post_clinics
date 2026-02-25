@@ -61,7 +61,7 @@ CLINIC_CONFIG = {
     },
     "services": [
         {"name": "Odontopediatria (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
-        {"name": "Odontopediatria (Retorno)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Odontopediatria (Consulta)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Pacientes Especiais (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Pacientes Especiais (Retorno)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Implante", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},

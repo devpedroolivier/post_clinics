@@ -8,13 +8,16 @@ class LoginRequest(BaseModel):
 class AppointmentCreate(SQLModel):
     patient_name: str
     patient_phone: str
+    responsible_name: str | None = None
     datetime: str
     service: str = "Clínica Geral"
     professional: str = "Clínica Geral"
+    status: str | None = None
 
 class AppointmentUpdate(SQLModel):
     patient_name: str | None = None
     patient_phone: str | None = None
+    responsible_name: str | None = None
     datetime: str | None = None
     service: str | None = None
     professional: str | None = None
