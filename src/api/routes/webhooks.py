@@ -114,7 +114,7 @@ async def receiver(request: Request):
             logger.warning(f"Ignored payload (missing phone/text): {payload}")
             return {"status": "ignored", "reason": "missing_data"}
 
-        if payload.get("fromMe", False) or payload.get("isGroup", False):
+        if payload.get("fromMe", False) or payload.get("isGroup", False) or payload.get("isNewsletter", False):
              return {"status": "ignored", "reason": "filtered_source"}
 
         now = _time.time()

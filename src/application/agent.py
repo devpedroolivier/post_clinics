@@ -143,11 +143,11 @@ except ImportError:
 try:
     from agents import OpenAIChatCompletionsModel
     model = OpenAIChatCompletionsModel(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-8b-instant",
         openai_client=async_client
     )
 except ImportError:
-    model = "llama-3.3-70b-versatile"
+    model = "llama-3.1-8b-instant"
 
 agent = Agent(
     name="PostClinicsReceptionist",
