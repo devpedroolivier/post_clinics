@@ -26,20 +26,46 @@ type Appointment = {
 function renderEventContent(eventInfo: any) {
     const isConfirmed = eventInfo.event.extendedProps.status === 'confirmed';
     const professional = eventInfo.event.extendedProps.professional;
-    return (
-        <div className="w-full h-full overflow-hidden text-ellipsis px-1.5 py-0.5 flex flex-col justify-center" title={`${eventInfo.event.title} (${professional})`}>
-            <div className="flex items-center gap-1.5 mb-0.5">
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
-                <b className="font-bold text-[10px] md:text-xs tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
+    const viewType = eventInfo.view.type;
+
+    if (viewType === 'dayGridMonth') {
+        // Compact view for Month
+        return (
+            <div className="w-full h-full overflow-hidden text-ellipsis px-1.5 py-0.5 flex flex-col justify-center" title={`${eventInfo.event.title} (${professional})`}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
+                    <b className="font-bold text-[10px] md:text-xs tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
+                </div>
+                <span className="font-semibold text-[11px] md:text-xs truncate text-brand-text-primary leading-tight">
+                    {eventInfo.event.title}
+                </span>
+                <span className="text-[9px] md:text-[10px] text-brand-text-secondary truncate mt-0.5 font-medium">
+                    {professional}
+                </span>
             </div>
-            <span className="font-semibold text-[11px] md:text-xs truncate text-brand-text-primary leading-tight">
-                {eventInfo.event.title}
-            </span>
-            <span className="text-[9px] md:text-[10px] text-brand-text-secondary truncate mt-0.5 font-medium">
-                {professional}
-            </span>
-        </div>
-    );
+        );
+    } else {
+        // Spacious, top-aligned view for Week and Day
+        return (
+            <div className="w-full h-full overflow-hidden flex flex-col justify-start p-1.5 md:p-2.5" title={`${eventInfo.event.title} (${professional})`}>
+                <div className="flex items-center gap-2 mb-1 border-b border-black/5 pb-1 w-full">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
+                    <b className="font-bold text-xs md:text-sm tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
+                </div>
+                <div className="flex flex-col gap-0.5 mt-1">
+                    <span className="font-bold text-xs md:text-sm text-brand-text-primary leading-snug">
+                        {eventInfo.event.title}
+                    </span>
+                    <span className="text-[10px] md:text-xs text-brand-text-primary/80 font-medium">
+                        {professional}
+                    </span>
+                    <span className="text-[9px] md:text-[10px] text-brand-text-secondary/80 font-medium truncate mt-0.5">
+                        {eventInfo.event.extendedProps.service}
+                    </span>
+                </div>
+            </div>
+        );
+    }
 }
 
 export const Dashboard = () => {
@@ -160,8 +186,10 @@ export const Dashboard = () => {
         if (apt.status === 'confirmed') {
             // Faint pastels for confirmed, distinguished by professional
             if (apt.professional === 'Ortodontia') bgColor = '#DBEAFE'; // Minimalist Blue
-            else if (apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#FCE7F3'; // Minimalist Pink
-            else bgColor = '#D1FAE5'; // Minimalist Green
+            else if (apt.professional === 'Dra. Débora' || apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#FCE7F3'; // Minimalist Pink
+            else if (apt.professional === 'Dr. Sidney') bgColor = '#D1FAE5'; // Minimalist Mint
+            else if (apt.professional === 'Dr. Ewerton') bgColor = '#E0E7FF'; // Minimalist Lavender
+            else bgColor = '#D1FAE5'; // Minimalist Green fallback
         }
 
         return {
@@ -218,7 +246,7 @@ export const Dashboard = () => {
                                 events={events}
                                 eventClick={handleEventClick}
                                 eventContent={renderEventContent}
-                                dayMaxEvents={4}
+                                dayMaxEvents={3}
                                 slotMinTime="08:00:00"
                                 slotMaxTime="18:30:00"
                                 allDaySlot={false}
@@ -299,7 +327,7 @@ export const Dashboard = () => {
                             <div>
                                 <label className="form-label">Profissional</label>
                                 <select className="input-field" value={formData.professional} onChange={e => setFormData({ ...formData, professional: e.target.value })}>
-                                    {["Clínica Geral", "Ortodontia", "Dra. Débora / Dr. Sidney"].map(p => (
+                                    {["Clínica Geral", "Ortodontia", "Dra. Débora", "Dr. Sidney", "Dr. Ewerton"].map(p => (
                                         <option key={p} value={p}>{p}</option>
                                     ))}
                                 </select>
