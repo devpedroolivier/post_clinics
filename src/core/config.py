@@ -19,7 +19,7 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         return default
 
-_default_cors = "http://localhost:5173,http://127.0.0.1:5173"
+_default_cors = "http://localhost:3000,http://127.0.0.1:3000"
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("CORS_ALLOWED_ORIGINS", _default_cors).split(",")
@@ -38,12 +38,11 @@ CLINIC_CONFIG = {
     "name": "Espaço Interativo Reabilitare",
     "assistant_name": "Cora",
     "hours": (
-        "Ortodontia: Segunda a Sexta 08:00–11:30 / 13:00–17:30\n"
+        "Dr. Ewerton (Ortodontia): Segunda a Sexta 08:00–11:30 / 13:00–17:30\n"
         "Dra. Débora e Dr. Sidney: Seg a Sex 09:00–12:00 / 14:30–18:00, Sáb 08:00–12:30\n"
         "Demais serviços: Segunda a Sexta 09:00–17:30"
     ),
     "schedules": {
-        "Ortodontia": {"blocks": [("08:00", "11:30"), ("13:00", "17:30")]},
         "Dra. Débora / Dr. Sidney": {
             "mon_fri": [("09:00", "12:00"), ("14:30", "18:00")],
             "sat": [("08:00", "12:30")]
@@ -56,10 +55,7 @@ CLINIC_CONFIG = {
             "mon_fri": [("09:00", "12:00"), ("14:30", "18:00")],
             "sat": [("08:00", "12:30")]
         },
-        "Dr. Ewerton": {
-            "mon_fri": [("09:00", "12:00"), ("14:30", "18:00")],
-            "sat": [("08:00", "12:30")]
-        },
+        "Dr. Ewerton": {"blocks": [("08:00", "11:30"), ("13:00", "17:30")]},
         "default": {"blocks": [("09:00", "17:30")]},
         "saturday": {"blocks": [("09:00", "13:00")]},
     },
@@ -70,7 +66,7 @@ CLINIC_CONFIG = {
         {"name": "Pacientes Especiais (Retorno)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Implante", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Clínica Geral", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
-        {"name": "Ortodontia", "duration": 45, "professional": "Ortodontia", "note": "Apenas dias 24 e 25 de Fev"},
+        {"name": "Ortodontia", "duration": 45, "professional": "Dr. Ewerton", "note": "Apenas dias 24 e 25 de Fev"},
         {"name": "Fonoaudióloga miofuncional", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"}
     ],
     "cancellation_policy": "Cancelamentos devem ser feitos com 24h de antecedência.",

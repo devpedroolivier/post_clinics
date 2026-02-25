@@ -47,7 +47,7 @@ function renderEventContent(eventInfo: any) {
     } else {
         // Spacious, top-aligned view for Week and Day
         return (
-            <div className="w-full h-full overflow-hidden flex flex-col justify-start p-1.5 md:p-2.5" title={`${eventInfo.event.title} (${professional})`}>
+            <div className="w-full h-full overflow-hidden flex flex-col justify-start p-1.5 md:p-2.5 m-[1px] shadow-sm rounded-sm" title={`${eventInfo.event.title} (${professional})`}>
                 <div className="flex items-center gap-2 mb-1 border-b border-black/5 pb-1 w-full">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${isConfirmed ? 'bg-brand-text-primary/80' : 'bg-brand-text-secondary/40'}`}></div>
                     <b className="font-bold text-xs md:text-sm tracking-tight text-brand-text-primary">{eventInfo.timeText}</b>
@@ -185,10 +185,9 @@ export const Dashboard = () => {
 
         if (apt.status === 'confirmed') {
             // Faint pastels for confirmed, distinguished by professional
-            if (apt.professional === 'Ortodontia') bgColor = '#DBEAFE'; // Minimalist Blue
-            else if (apt.professional === 'Dra. Débora' || apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#FCE7F3'; // Minimalist Pink
+            if (apt.professional === 'Dra. Débora' || apt.professional === 'Dra. Débora / Dr. Sidney') bgColor = '#FCE7F3'; // Minimalist Pink
             else if (apt.professional === 'Dr. Sidney') bgColor = '#D1FAE5'; // Minimalist Mint
-            else if (apt.professional === 'Dr. Ewerton') bgColor = '#E0E7FF'; // Minimalist Lavender
+            else if (apt.professional === 'Dr. Ewerton') bgColor = '#DBEAFE'; // Minimalist Blue (Orthodontics)
             else bgColor = '#D1FAE5'; // Minimalist Green fallback
         }
 
@@ -247,6 +246,7 @@ export const Dashboard = () => {
                                 eventClick={handleEventClick}
                                 eventContent={renderEventContent}
                                 dayMaxEvents={3}
+                                slotEventOverlap={false}
                                 slotMinTime="08:00:00"
                                 slotMaxTime="18:30:00"
                                 allDaySlot={false}
@@ -327,7 +327,7 @@ export const Dashboard = () => {
                             <div>
                                 <label className="form-label">Profissional</label>
                                 <select className="input-field" value={formData.professional} onChange={e => setFormData({ ...formData, professional: e.target.value })}>
-                                    {["Clínica Geral", "Ortodontia", "Dra. Débora", "Dr. Sidney", "Dr. Ewerton"].map(p => (
+                                    {["Clínica Geral", "Dra. Débora", "Dr. Sidney", "Dr. Ewerton"].map(p => (
                                         <option key={p} value={p}>{p}</option>
                                     ))}
                                 </select>
