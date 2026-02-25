@@ -3,8 +3,9 @@ from agents import Agent, Runner, ModelSettings
 
 from src.application.tools import check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base, request_human_attendant
 from src.core.config import CLINIC_CONFIG
+from src.application.services.context_injection import inject_context_into_prompt
 
-def get_agent_instructions(config):
+def get_agent_instructions(config, ctx=None):
     services_with_duration = []
     services_names_only = []
     for s in config["services"]:
@@ -21,6 +22,10 @@ def get_agent_instructions(config):
     now = datetime.now(BR_TZ)
     current_date = now.strftime("%Y-%m-%d (%A)")
     tomorrow_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    dynamic_context = ""
+    if ctx and hasattr(ctx, "messages"):
+        dynamic_context = inject_context_into_prompt(ctx.messages)
     
     return f"""Você é {config['assistant_name']}, recepcionista virtual da {config['name']}.
 Hoje é {current_date}. Amanhã é {tomorrow_date}.
@@ -96,7 +101,11 @@ REGRAS:
 - NUNCA solicite o número de telefone, pois ele já é fornecido no contexto.
 - Converta termos relativos como "amanhã" para a data correspondente ({tomorrow_date}) ao utilizar ferramentas.
 - NUNCA invente disponibilidades ou restrições de datas. Baseie-se APENAS no retorno da ferramenta `check_availability`. Se check_availability disser que não há horários, apenas repasse a mensagem, NÃO diga que o serviço "não está disponível em outros dias".
+- LIMITES ESTRITOS DE CONTEXTO (ANTI-ALUCINAÇÃO): Você deve se basear APENAS nas informações fornecidas neste prompt ou nas inseridas como contexto injetado. Se não possuir a informação solicitada, diga explicitamente "Não possuo essa informação no momento." ou peça esclarecimentos adicionais. NUNCA invente regras, valores, disponibilidade de convênios ou procedimentos que não estejam documentados.
+- AMBIGUIDADE: Se a solicitação do usuário for muito ampla ou ambígua para buscar uma resposta segura no seu conhecimento, peça para ele explicar detalhadamente antes de responder.
 - Caso o paciente solicite falar com um humano, atendente, recepcionista ou se a situação se tornar complexa após 3 tentativas sem sucesso, use a ferramenta request_human_attendant.
+
+{dynamic_context}
 
 FERRAMENTAS — use EXATAMENTE este formato:
 <function=check_availability>{{"date_str": "{tomorrow_date}", "service_name": "Clínica Geral"}}</function>
@@ -142,7 +151,7 @@ except ImportError:
 
 agent = Agent(
     name="PostClinicsReceptionist",
-    instructions=lambda ctx, agent: get_agent_instructions(CLINIC_CONFIG),
+    instructions=lambda ctx, agent: get_agent_instructions(CLINIC_CONFIG, ctx),
     model=model,
     model_settings=ModelSettings(temperature=0.3),
     tools=[check_availability, schedule_appointment, confirm_appointment, cancel_appointment, reschedule_appointment, get_available_services, find_patient_appointments, search_knowledge_base, request_human_attendant],
