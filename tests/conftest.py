@@ -8,6 +8,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
+# Force test isolation: never use production data directory.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEST_DATA_DIR = os.path.join(PROJECT_ROOT, "data_test")
+os.makedirs(TEST_DATA_DIR, exist_ok=True)
+os.environ["DATA_DIR"] = TEST_DATA_DIR
+
 # Provide a fallback JWT_SECRET_KEY for testing if not set in .env
 if not os.environ.get("JWT_SECRET_KEY"):
     os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-smoke-tests"
