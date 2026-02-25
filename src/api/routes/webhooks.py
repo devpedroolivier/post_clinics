@@ -2,9 +2,10 @@ import re
 import json
 import os
 import logging
+import asyncio
 from collections import defaultdict
 import time as _time
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from agents import Runner, SQLiteSession
 
 from src.core.config import ANTISPAM_CONFIG, DATA_DIR
@@ -68,12 +69,112 @@ TOOL_MAP = {
     ),
 }
 
-# State for rate limiting and dedup (usually attached to app.state, using global here for simplicity or we can attach to router)
+# State for rate limiting and dedup
 _seen_messages = {}
 _phone_timestamps = defaultdict(list)
+_phone_locks = {}
+
+def get_phone_lock(phone: str) -> asyncio.Lock:
+    if phone not in _phone_locks:
+        _phone_locks[phone] = asyncio.Lock()
+    return _phone_locks[phone]
+
+async def process_webhook_payload(phone: str, message_id: str, text_content: str):
+    """
+    Background worker that runs the LLM logic sequentially per-phone to prevent overlapping agent sessions.
+    """
+    lock = get_phone_lock(phone)
+    async with lock:
+        try:
+            # --- PROCESS MESSAGE ---
+            session_id = f"zapi:{phone}"
+            conversation_db = os.path.join(DATA_DIR, "conversations.db")
+            session = SQLiteSession(db_path=conversation_db, session_id=session_id)
+            
+            # Inject patient profile from Long-Term Memory
+            try:
+                from src.infrastructure.vector_store import get_patient_profile
+                prefs = get_patient_profile(phone)
+            except Exception as e:
+                prefs = ""
+                logger.error(f"Failed to fetch profile: {e}")
+                
+            # Pre-process short messages/emojis into explicit intent phrases
+            text_content = preprocess_intent(text_content)
+            
+            # Inject patient phone into context so agent can look up appointments
+            agent_input = f"Telefone do paciente: {phone}\n{prefs}\n{text_content}"
+            
+            logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
+            
+            result = await Runner.run(agent, input=agent_input, session=session, max_turns=10)
+            logger.info(f"Agent response: {result}")
+            
+            # --- GROQ/LLAMA WORKAROUND ---
+            final_text = result.final_output
+            if not isinstance(final_text, str):
+                final_text = str(final_text)
+            
+            tool_pattern = r'<function=(\w+)>(.*?)</function>'
+            
+            for attempt in range(3):
+                matches = list(re.finditer(tool_pattern, final_text, re.DOTALL))
+                if not matches:
+                    break
+                    
+                tool_results = []
+                for match in matches:
+                    func_name = match.group(1)
+                    args_str = match.group(2).strip()
+                    logger.info(f"Detected tool call #{attempt+1}: {func_name}({args_str})")
+                    
+                    if func_name in TOOL_MAP:
+                        try:
+                            kwargs = json.loads(args_str) if args_str else {}
+                            tool_output = TOOL_MAP[func_name](**kwargs)
+                        except json.JSONDecodeError:
+                            tool_output = f"Error: Invalid JSON arguments: {args_str}"
+                        except Exception as e:
+                            tool_output = f"Error executing {func_name}: {e}"
+                    else:
+                        tool_output = f"Tool '{func_name}' not available."
+                        
+                    logger.info(f"Tool Output: {tool_output}")
+                    tool_results.append(f"Tool '{func_name}' returned: {tool_output}")
+                
+                results_summary = "\n".join(tool_results)
+                next_input = f"(SYSTEM: {results_summary}\nBased on these results, respond to the user in Portuguese.)"
+                
+                result = await Runner.run(agent, input=next_input, session=session)
+                final_text = result.final_output
+                if not isinstance(final_text, str):
+                    final_text = str(final_text)
+                logger.info(f"Agent follow-up response (attempt {attempt+1}): {final_text}")
+            
+            # --- RESPONSE CLEANUP ---
+            reply_text = final_text
+            if not isinstance(reply_text, str):
+                reply_text = str(reply_text)
+                
+            reply_text = re.sub(r'<thought>.*?</thought>', '', reply_text, flags=re.DOTALL)
+            reply_text = re.sub(r'\[TOOL_CALL\]|\[SYSTEM\]|\[FUNCTION\]', '', reply_text)
+            reply_text = re.sub(r'Telefone do paciente:\s*\S+', '', reply_text)
+            reply_text = re.sub(r'<function=.*?>.*?</function>', '', reply_text, flags=re.DOTALL)
+            reply_text = reply_text.strip()
+            
+            if not reply_text:
+                reply_text = "Desculpe, não entendi. Pode repetir?"
+                
+            send_success = await send_message(phone, reply_text)
+            logger.info(f"[WPP:OUT] phone={phone} success={send_success} reply={reply_text[:100]}...")
+            
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(f"CRITICAL Error in background task for {phone}: {e}\n{error_trace}")
 
 @router.post("/zapi")
-async def receiver(request: Request):
+async def receiver(request: Request, background_tasks: BackgroundTasks):
     """
     Endpoint request from Z-API.
     Accepts arbitrary JSON and manually extracts fields to be robust against structure variations.
@@ -153,90 +254,9 @@ async def receiver(request: Request):
         
         _phone_timestamps[phone].append(now)
 
-        # --- PROCESS MESSAGE ---
-        session_id = f"zapi:{phone}"
-        conversation_db = os.path.join(DATA_DIR, "conversations.db")
-        session = SQLiteSession(db_path=conversation_db, session_id=session_id)
-        
-        # Inject patient profile from Long-Term Memory
-        try:
-            from src.infrastructure.vector_store import get_patient_profile
-            prefs = get_patient_profile(phone)
-        except Exception as e:
-            prefs = ""
-            logger.error(f"Failed to fetch profile: {e}")
-            
-        # Pre-process short messages/emojis into explicit intent phrases
-        text_content = preprocess_intent(text_content)
-        
-        # Inject patient phone into context so agent can look up appointments
-        agent_input = f"Telefone do paciente: {phone}\n{prefs}\n{text_content}"
-        
-        logger.info(f"[WPP:IN] phone={phone} msgId={message_id} text={text_content}")
-        
-        result = await Runner.run(agent, input=agent_input, session=session, max_turns=10)
-        logger.info(f"Agent response: {result}")
-        
-        # --- GROQ/LLAMA 3 WORKAROUND ---
-        final_text = result.final_output
-        if not isinstance(final_text, str):
-            final_text = str(final_text)
-        
-        tool_pattern = r'<function=(\w+)>(.*?)</function>'
-        
-        for attempt in range(3):
-            matches = list(re.finditer(tool_pattern, final_text, re.DOTALL))
-            if not matches:
-                break
-                
-            tool_results = []
-            for match in matches:
-                func_name = match.group(1)
-                args_str = match.group(2).strip()
-                logger.info(f"Detected tool call #{attempt+1}: {func_name}({args_str})")
-                
-                if func_name in TOOL_MAP:
-                    try:
-                        kwargs = json.loads(args_str) if args_str else {}
-                        tool_output = TOOL_MAP[func_name](**kwargs)
-                    except json.JSONDecodeError:
-                        tool_output = f"Error: Invalid JSON arguments: {args_str}"
-                    except Exception as e:
-                        tool_output = f"Error executing {func_name}: {e}"
-                else:
-                    tool_output = f"Tool '{func_name}' not available."
-                    
-                logger.info(f"Tool Output: {tool_output}")
-                tool_results.append(f"Tool '{func_name}' returned: {tool_output}")
-            
-            results_summary = "\n".join(tool_results)
-            next_input = f"(SYSTEM: {results_summary}\nBased on these results, respond to the user in Portuguese.)"
-            
-            result = await Runner.run(agent, input=next_input, session=session)
-            final_text = result.final_output
-            if not isinstance(final_text, str):
-                final_text = str(final_text)
-            logger.info(f"Agent follow-up response (attempt {attempt+1}): {final_text}")
-        
-        # --- RESPONSE CLEANUP ---
-        reply_text = final_text
-        if not isinstance(reply_text, str):
-            reply_text = str(reply_text)
-            
-        reply_text = re.sub(r'<thought>.*?</thought>', '', reply_text, flags=re.DOTALL)
-        reply_text = re.sub(r'\[TOOL_CALL\]|\[SYSTEM\]|\[FUNCTION\]', '', reply_text)
-        reply_text = re.sub(r'Telefone do paciente:\s*\S+', '', reply_text)
-        reply_text = re.sub(r'<function=.*?>.*?</function>', '', reply_text, flags=re.DOTALL)
-        reply_text = reply_text.strip()
-        
-        if not reply_text:
-            reply_text = "Desculpe, não entendi. Pode repetir?"
-            
-        send_success = await send_message(phone, reply_text)
-        logger.info(f"[WPP:OUT] phone={phone} success={send_success} reply={reply_text[:100]}...")
-        
-        status = "processed_and_sent" if send_success else "processed_send_failed"
-        return {"status": status, "reply": reply_text}
+        # --- ENQUEUE PROCESS MESSAGE ---
+        background_tasks.add_task(process_webhook_payload, phone, message_id, text_content)
+        return {"status": "queued"}
 
     except HTTPException:
         raise

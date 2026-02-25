@@ -83,3 +83,14 @@ def verify_webhook_signature(headers: Mapping[str, str], raw_body: bytes):
 
     if not hmac.compare_digest(signature, expected_signature):
         raise HTTPException(status_code=401, detail="Assinatura do webhook inválida")
+
+def generate_signature(raw_body: bytes) -> str:
+    """Generate a HMAC-SHA256 signature for testing or internal use."""
+    if not WEBHOOK_SIGNATURE_SECRET:
+        return ""
+    return hmac.new(
+        WEBHOOK_SIGNATURE_SECRET.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
