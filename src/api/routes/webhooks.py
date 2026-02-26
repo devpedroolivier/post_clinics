@@ -84,6 +84,9 @@ _phone_handoff_until = {}
 SCOPE_PATTERN = re.compile(
     r"\b(agendar|agendamento|marcar|consulta|hor[aá]rio|servi[cç]o|reagendar|cancelar|confirmar|desmarcar)\b"
 )
+# User may answer only with date/time while choosing slots.
+DATE_SELECTION_PATTERN = re.compile(r"^(dia\s*)?\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?\s*$", re.IGNORECASE)
+TIME_SELECTION_PATTERN = re.compile(r"^(a[sà]s?\s*)?\d{1,2}(:|h)\d{2}\s*$", re.IGNORECASE)
 GREETING_PATTERN = re.compile(r"^(oi|ol[áa]|bom dia|boa tarde|boa noite)\b")
 HUMAN_REQUEST_PATTERN = re.compile(r"\b(atendente|humano|pessoa|recepcionista)\b")
 FINANCIAL_PATTERN = re.compile(r"\b(valor|pre[cç]o|financeiro|pagamento|cobran[cç]a|or[cç]amento)\b")
@@ -256,6 +259,8 @@ def detect_handoff_reason(text: str) -> str | None:
 def is_in_supported_scope(text: str) -> bool:
     normalized = (text or "").strip().lower()
     if GREETING_PATTERN.search(normalized):
+        return True
+    if DATE_SELECTION_PATTERN.match(normalized) or TIME_SELECTION_PATTERN.match(normalized):
         return True
     return bool(SCOPE_PATTERN.search(normalized))
 

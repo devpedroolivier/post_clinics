@@ -138,6 +138,28 @@ def test_handoff_sticky_blocks_non_scope_until_supported_scope_returns():
     asyncio.run(_run())
 
 
+def test_date_and_time_selection_are_treated_as_supported_scope():
+    _clean_db()
+    _reset_webhook_runtime_state()
+
+    async def _run():
+        with patch("src.api.routes.webhooks.Runner.run", new_callable=AsyncMock) as mock_runner:
+            with patch("src.api.routes.webhooks.send_message", new_callable=AsyncMock) as mock_send:
+                mock_send.return_value = {"success": True, "status_code": 200, "error_message": None}
+                mock_runner.return_value = _FakeRunnerResult("Perfeito, vamos continuar com seu agendamento.")
+
+                phone = "5511977700009"
+                await webhooks.process_webhook_payload(phone, "msg-date", "dia 5/3")
+                await webhooks.process_webhook_payload(phone, "msg-time", "15:15")
+
+                assert mock_runner.call_count == 2
+                sent_texts = [call.args[1] for call in mock_send.call_args_list]
+                assert all(webhooks.HANDOFF_REPLY not in text for text in sent_texts)
+                assert webhooks._phone_out_of_scope_attempts[phone] == 0
+
+    asyncio.run(_run())
+
+
 def test_inline_tool_guard_escalates_when_too_many_tags():
     _clean_db()
     _reset_webhook_runtime_state()
