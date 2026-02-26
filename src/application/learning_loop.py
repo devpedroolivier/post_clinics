@@ -32,8 +32,10 @@ DB_PATH = os.path.join(DATA_DIR, "conversations.db")
 async def summarize_learning(messages_str: str) -> str:
     prompt = f"""
     Analise o seguinte histórico de mensagens entre um Paciente e uma Assistente de Clínica (Cora).
-    Identifique se o paciente forneceu alguma preferência explícita (ex: horários preferidos, restrições)
-    ou se houve alguma correção manual. Se houver um aprendizado válido, retorne APENAS um resumo curto (uma frase) desse aprendizado.
+    Identifique se o paciente forneceu alguma preferência explícita (ex: horários preferidos, restrições),
+    se houve alguma correção manual, ou se o paciente forneceu uma AVALIAÇÃO/FEEDBACK do atendimento 
+    (ex: nota de 1 a 5, elogios, reclamações) após um agendamento.
+    Se houver um aprendizado ou feedback válido, retorne APENAS um resumo curto (uma frase) desse aprendizado/feedback.
     Se não houver nada relevante, retorne a string exata: "NULL".
     
     Histórico:
@@ -67,7 +69,10 @@ async def run_learning_loop():
         sessions = [r[0] for r in cursor.fetchall()]
         
         for session_id in sessions:
-            phone = session_id.split(":")[-1] if ":" in session_id else session_id
+            # Handle both old 'zapi:phone' and new 'zapi:phone:timestamp' formats
+            parts = session_id.split(":")
+            phone = parts[1] if len(parts) > 1 and parts[0] == "zapi" else session_id
+            
             cursor.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC LIMIT 10", (session_id,))
             messages = cursor.fetchall()
             

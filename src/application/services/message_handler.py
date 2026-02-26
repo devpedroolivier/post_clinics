@@ -74,7 +74,9 @@ TOOL_MAP = {
 
 _phone_locks = {}
 _phone_out_of_scope_attempts = defaultdict(int)
-_phone_handoff_until = {}
+_phone_is_handoff = {}
+_last_message_at = {}
+_session_starts = {}
 
 SCOPE_PATTERN = re.compile(
     r"\b(agendar|agendamento|marcar|consulta|hor[aá]rio|servi[cç]o|reagendar|cancelar|confirmar|desmarcar)\b"
@@ -134,19 +136,15 @@ def _is_request_too_large_error(exc: Exception) -> bool:
 
 
 def _activate_handoff(phone: str):
-    _phone_handoff_until[phone] = _time.time() + HANDOFF_TTL_SECONDS
+    _phone_is_handoff[phone] = True
 
 
 def _has_active_handoff(phone: str) -> bool:
-    until = _phone_handoff_until.get(phone, 0)
-    if until <= _time.time():
-        _phone_handoff_until.pop(phone, None)
-        return False
-    return True
+    return _phone_is_handoff.get(phone, False)
 
 
 def _clear_handoff(phone: str):
-    _phone_handoff_until.pop(phone, None)
+    _phone_is_handoff.pop(phone, None)
 
 
 async def _safe_send_message(phone: str, text: str):
@@ -271,8 +269,21 @@ async def process_webhook_payload(phone: str, message_id: str, text_content: str
     lock = get_phone_lock(phone)
     async with lock:
         try:
+            # --- SESSION TIMEOUT & REACTIVATION ---
+            now = _time.time()
+            last_msg = _last_message_at.get(phone, 0)
+            SESSION_TIMEOUT_SECONDS = 1800  # 30 minutes
+            
+            if phone not in _session_starts or (now - last_msg > SESSION_TIMEOUT_SECONDS):
+                _session_starts[phone] = int(now)
+                _clear_handoff(phone)
+                _phone_out_of_scope_attempts[phone] = 0
+                logger.info(f"[SESSION_START] phone={phone} new session started/reactivated after timeout")
+                
+            _last_message_at[phone] = now
+
             # --- PROCESS MESSAGE ---
-            session_id = f"zapi:{phone}"
+            session_id = f"zapi:{phone}:{_session_starts[phone]}"
             conversation_db = os.path.join(DATA_DIR, "conversations.db")
             session = SQLiteSession(db_path=conversation_db, session_id=session_id)
             
@@ -288,11 +299,9 @@ async def process_webhook_payload(phone: str, message_id: str, text_content: str
             text_content = preprocess_intent(_truncate_text(text_content, MAX_TEXT_CHARS))
 
             if _has_active_handoff(phone):
-                if is_in_supported_scope(text_content) and not detect_handoff_reason(text_content):
-                    _clear_handoff(phone)
-                else:
-                    await _safe_send_message(phone, HANDOFF_REPLY)
-                    return
+                # Persistent handoff - do not automatically clear based on supported scope anymore
+                await _safe_send_message(phone, HANDOFF_REPLY)
+                return
 
             handoff_reason = detect_handoff_reason(text_content)
             if handoff_reason:

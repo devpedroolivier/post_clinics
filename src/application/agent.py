@@ -74,6 +74,7 @@ QUANDO O PACIENTE COMEÇAR UM NOVO AGENDAMENTO:
 4. Solicite o nome completo do paciente
 5. Confirme explicitamente com o paciente: "Posso confirmar este agendamento?"
 6. SOMENTE após confirmação explícita ("sim", "confirmo", "pode agendar"), use schedule_appointment com o nome e telefone do contexto
+7. Após o agendamento ser concluído com sucesso, SEMPRE peça para o paciente avaliar o atendimento (dando uma nota ou um breve comentário) e se despeça.
 
 QUANDO O PACIENTE QUISER CONFIRMAR PRESENÇA DA CONSULTA AGENDADA:
 1. Use find_patient_appointments com o telefone
