@@ -126,10 +126,19 @@ Quando usar ferramenta, emita APENAS a tag, sem texto extra.
 
 from openai import OpenAI, AsyncOpenAI
 
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-OPENAI_TIMEOUT_SECONDS = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "18"))
+_explicit_openai_key = os.environ.get("OPENAI_API_KEY")
+_legacy_groq_key = os.environ.get("GROQ_API_KEY")
+OPENAI_API_KEY = _explicit_openai_key or _legacy_groq_key
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+if not OPENAI_BASE_URL and _legacy_groq_key and not _explicit_openai_key:
+    # Backward compatibility for environments still configured with GROQ_API_KEY.
+    OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
+
+OPENAI_TIMEOUT_SECONDS = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "18"))
+if "OPENAI_MODEL" in os.environ:
+    OPENAI_MODEL = os.environ["OPENAI_MODEL"]
+else:
+    OPENAI_MODEL = "llama-3.1-8b-instant" if (OPENAI_BASE_URL and "groq.com" in OPENAI_BASE_URL) else "gpt-4o-mini"
 
 _client_kwargs = {
     "api_key": OPENAI_API_KEY,
