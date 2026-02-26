@@ -29,6 +29,9 @@ jobs:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       run: |
         if [ -n "${OPENAI_API_KEY:-}" ] || [ -n "${GROQ_API_KEY:-}" ]; then
+          if [ -n "${OPENAI_API_KEY:-}" ] && [ -z "${OPENAI_BASE_URL:-}" ]; then
+            export OPENAI_MODEL="gpt-4o-mini"
+          fi
           RUN_LIVE_LLM_TESTS=1 pytest -q tests/test_agent_hallucination.py
         else
           echo "No LLM API key configured. Running in skip mode."

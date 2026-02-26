@@ -9,20 +9,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agents import Runner, SQLiteSession
-from src.application.agent import agent, async_client
+from src.application.agent import agent
 from src.core.config import DATA_DIR
-from agents import OpenAIChatCompletionsModel
 
 RUN_LIVE_LLM_TESTS = os.getenv("RUN_LIVE_LLM_TESTS", "0") == "1"
 
 
 async def _run_hallucination_safeguards():
-    # Patch agent model to avoid rate limits
-    agent.model = OpenAIChatCompletionsModel(
-        model="llama-3.1-8b-instant",
-        openai_client=async_client
-    )
-    
     print("Starting Anti-Hallucination Tests...\n")
     session = SQLiteSession(db_path=os.path.join(DATA_DIR, "test_hallucination.db"), session_id="test_hallucination_1")
     
