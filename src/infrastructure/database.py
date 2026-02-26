@@ -42,6 +42,23 @@ def _apply_lightweight_migrations():
                 WHERE LOWER(TRIM(service)) = 'odontopediatria (retorno)'
                 """
             )
+            cursor.execute(
+                """
+                UPDATE appointment
+                SET service = 'Paciente com necessidades especiais (1ª vez)'
+                WHERE LOWER(TRIM(service)) = 'pacientes especiais (1ª vez)'
+                """
+            )
+            cursor.execute(
+                """
+                UPDATE appointment
+                SET service = 'Paciente com necessidades especiais (Consulta)'
+                WHERE LOWER(TRIM(service)) IN (
+                    'pacientes especiais (retorno)',
+                    'paciente com necessidades especiais (retorno)'
+                )
+                """
+            )
 
         if "patient" in tables:
             patient_columns = _get_columns(cursor, "patient")

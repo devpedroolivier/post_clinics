@@ -296,7 +296,6 @@ def _reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
 def _get_available_services() -> str:
     services_list = []
     for s in CLINIC_CONFIG["services"]:
-        duration = s["duration"]
         note = f" ({s['note']})" if "note" in s else ""
         services_list.append(f"- {canonicalize_service_name(s['name'])}{note}")
     return "Serviços disponíveis na clínica:\n" + "\n".join(services_list)
@@ -373,7 +372,7 @@ def reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
 
 @function_tool
 def get_available_services(query: str = "") -> str:
-    """Get list of available services and their durations. Pass empty string for query."""
+    """Get list of available services. Pass empty string for query."""
     return _get_available_services()
 
 @function_tool

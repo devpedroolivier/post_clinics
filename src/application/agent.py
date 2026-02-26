@@ -6,15 +6,12 @@ from src.core.config import CLINIC_CONFIG
 from src.application.services.context_injection import inject_context_into_prompt
 
 def get_agent_instructions(config, ctx=None):
-    services_with_duration = []
-    services_names_only = []
+    services_list = []
     for s in config["services"]:
-        duration = s["duration"]
         note = f" ({s['note']})" if "note" in s else ""
-        services_with_duration.append(f"• {s['name']}{note}")
-        services_names_only.append(s['name'])
+        services_list.append(f"• {s['name']}{note}")
     
-    services_formatted = "\n".join(services_with_duration)
+    services_formatted = "\n".join(services_list)
     
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
@@ -67,6 +64,8 @@ Responda:
 {services_formatted}
 
 Gostaria de agendar algum desses?"
+NUNCA inclua duração/tempo em minutos nessa lista.
+NUNCA use nomes legados como "Odontopediatria (Retorno)" ou "Pacientes Especiais (...)". Use exatamente os nomes da lista acima.
 
 QUANDO O PACIENTE COMEÇAR UM NOVO AGENDAMENTO:
 1. Pergunte qual serviço (se não informou)

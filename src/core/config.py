@@ -62,8 +62,8 @@ CLINIC_CONFIG = {
     "services": [
         {"name": "Odontopediatria (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Odontopediatria (Consulta)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
-        {"name": "Pacientes Especiais (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
-        {"name": "Pacientes Especiais (Retorno)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Paciente com necessidades especiais (1ª vez)", "duration": 60, "professional": "Dra. Débora / Dr. Sidney"},
+        {"name": "Paciente com necessidades especiais (Consulta)", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Implante", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Clínica Geral", "duration": 45, "professional": "Dra. Débora / Dr. Sidney"},
         {"name": "Ortodontia", "duration": 45, "professional": "Dr. Ewerton", "note": "Apenas dias 24 e 25 de Fev"},

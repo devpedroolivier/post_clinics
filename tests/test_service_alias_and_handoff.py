@@ -51,6 +51,22 @@ def test_service_alias_keeps_compatibility_with_legacy_name():
     services = _get_available_services()
     assert "Odontopediatria (Consulta)" in services
     assert "Odontopediatria (Retorno)" not in services
+    assert "Pacientes Especiais (Retorno)" not in services
+
+
+def test_special_needs_alias_keeps_compatibility_with_legacy_name():
+    result = _schedule_appointment(
+        name="Paciente Especial",
+        phone="5511990000004",
+        datetime_str="2026-06-11 09:00",
+        service_name="Pacientes Especiais (Retorno)",
+    )
+    assert "Agendamento confirmado" in result
+
+    with Session(engine) as session:
+        appointment = session.exec(select(Appointment)).first()
+        assert appointment is not None
+        assert appointment.service == "Paciente com necessidades especiais (Consulta)"
 
 
 def test_handoff_routes_financial_messages_without_llm():

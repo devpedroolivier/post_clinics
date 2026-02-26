@@ -334,7 +334,7 @@ export const Dashboard = () => {
                             <div>
                                 <label className="form-label">Serviço</label>
                                 <select className="input-field" value={formData.service} onChange={e => setFormData({ ...formData, service: e.target.value })}>
-                                    {["Odontopediatria (1ª vez)", "Odontopediatria (Consulta)", "Pacientes Especiais (1ª vez)", "Pacientes Especiais (Retorno)", "Implante", "Clínica Geral", "Ortodontia", "Fonoaudióloga miofuncional"].map(s => (
+                                    {["Odontopediatria (1ª vez)", "Odontopediatria (Consulta)", "Paciente com necessidades especiais (1ª vez)", "Paciente com necessidades especiais (Consulta)", "Implante", "Clínica Geral", "Ortodontia", "Fonoaudióloga miofuncional"].map(s => (
                                         <option key={s} value={s}>{s}</option>
                                     ))}
                                 </select>
