@@ -70,7 +70,7 @@ def test_logic():
     print("\n--- Trying to Schedule Overlap (09:30) ---")
     res_fail = _schedule_appointment(name="Fail User", phone="456", datetime_str="2025-05-20 09:30", service_name="Clínica Geral")
     print(res_fail)
-    assert "Conflito de horário" in res_fail
+    assert "Horário ocupado" in res_fail or "Conflito" in res_fail
 
     # 6. Test Reschedule
     print("\n--- Testing Reschedule (09:00 -> 14:30) ---")

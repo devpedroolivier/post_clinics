@@ -7,47 +7,17 @@ from src.domain.models import Appointment, Patient
 from src.core.config import CLINIC_CONFIG
 from src.application.services.patient_identity import (
     find_patients_by_contact,
-    resolve_patient_for_contact,
 )
 from src.application.services.service_catalog import canonicalize_service_name
 from src.application.services.appointment_status import normalize_status
 from src.infrastructure.vector_store import search_store
+from src.application.services import appointment_manager
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
-import difflib
-
 def get_service_info(service_name: str) -> dict:
     """Helper to get service info (duration, professional) with fuzzy matching."""
-    default_resp = {"duration": 45, "professional": "Clínica Geral"}
-    if not service_name:
-        return default_resp
-    service_name = canonicalize_service_name(service_name)
-        
-    services = CLINIC_CONFIG.get("services", [])
-    service_names = [canonicalize_service_name(s["name"]) for s in services]
-    
-    # 1. Exact or close match
-    matches = difflib.get_close_matches(service_name, service_names, n=1, cutoff=0.6)
-    if matches:
-        best_match = matches[0]
-        for s in services:
-            if canonicalize_service_name(s["name"]) == best_match:
-                return {
-                    "duration": s.get("duration", 45),
-                    "professional": s.get("professional", "Clínica Geral")
-                }
-                
-    # 2. Substring fallback
-    for s in services:
-        canonical = canonicalize_service_name(s["name"])
-        if service_name.lower() in canonical.lower() or canonical.lower() in service_name.lower():
-            return {
-                "duration": s.get("duration", 45),
-                "professional": s.get("professional", "Clínica Geral")
-            }
-            
-    return default_resp
+    return appointment_manager.get_service_info(service_name)
 
 # --- Core Logic Functions (Undecorated for Testing) ---
 
@@ -135,7 +105,7 @@ def _check_availability(date_str: str, service_name: str = "Clínica Geral") -> 
                 if is_free:
                     available_slots.append(current_slot)
                 
-                # Use fixed 45-min grid for most, unless specified
+                # Use fixed grid for slots
                 current_slot += timedelta(minutes=duration_minutes)
 
     if not available_slots:
@@ -161,90 +131,47 @@ def _schedule_appointment(
     service_name: str = "Clínica Geral",
     responsible_name: str | None = None,
 ) -> str:
-    service_name = canonicalize_service_name(service_name)
     try:
         appt_dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
     except ValueError:
         return "Formato inválido. Use AAAA-MM-DD HH:MM."
         
-    info = get_service_info(service_name)
-    duration_minutes = info["duration"]
-    professional = info["professional"]
-
     with Session(engine) as session:
-        patient = resolve_patient_for_contact(
-            session,
-            name=name,
-            phone=phone,
-            responsible_name=responsible_name,
-        )
-            
-        new_end = appt_dt + timedelta(minutes=duration_minutes)
-        
-        # Check collisions for this professional
-        day_start = appt_dt.replace(hour=0, minute=0)
-        day_end = appt_dt.replace(hour=23, minute=59)
-        
-        statement = select(Appointment).where(
-            Appointment.datetime >= day_start,
-            Appointment.datetime <= day_end,
-            Appointment.status != "cancelled",
-            Appointment.professional == professional
-        )
-        existing_appointments = session.exec(statement).all()
-        
-        for appt in existing_appointments:
-            appt_info = get_service_info(appt.service)
-            existing_end = appt.datetime + timedelta(minutes=appt_info["duration"])
-            
-            if appt_dt < existing_end and new_end > appt.datetime:
-                return f"Conflito de horário: Dr(a). {professional} já possui um agendamento das {appt.datetime.strftime('%H:%M')} às {existing_end.strftime('%H:%M')}."
-
-        appt = Appointment(
-            patient_id=patient.id, 
-            datetime=appt_dt, 
-            service=service_name,
-            professional=professional,
-            status="confirmed"
-        )
-        session.add(appt)
-        session.commit()
-        session.refresh(appt)
-        
-        return f"Agendamento confirmado [ID: {appt.id}] para {name}, Serviço: {service_name} com {professional} em {datetime_str}."
+        try:
+            appt = appointment_manager.create_appointment(
+                session,
+                patient_name=name,
+                patient_phone=phone,
+                dt=appt_dt,
+                service_name=service_name,
+                responsible_name=responsible_name,
+                status="confirmed" # AI tools usually auto-confirm if scheduling
+            )
+            return f"Agendamento confirmado [ID: {appt.id}] para {name}, Serviço: {appt.service} com {appt.professional} em {datetime_str}."
+        except ValueError as e:
+            return str(e)
 
 def _confirm_appointment(appointment_id: int) -> str:
     with Session(engine) as session:
-        appt = session.get(Appointment, appointment_id)
-        if not appt:
-            return "Agendamento não encontrado."
-
-        current_status = normalize_status(appt.status, default="scheduled")
-        if current_status == "confirmed":
-            return f"Agendamento {appointment_id} já está confirmado."
-
-        if current_status in ("scheduled", "rescheduled"):
-            appt.status = "confirmed"
-            session.add(appt)
-            session.commit()
+        try:
+            appointment_manager.update_appointment(
+                session,
+                appointment_id=appointment_id,
+                status="confirmed"
+            )
             return f"Agendamento {appointment_id} confirmado com sucesso!"
-
-        return f"Agendamento {appointment_id} está com status '{appt.status}' e não pode ser confirmado."
+        except KeyError:
+            return "Agendamento não encontrado."
+        except ValueError as e:
+            return f"Erro ao confirmar agendamento: {e}"
 
 def _cancel_appointment(appointment_id: int) -> str:
     with Session(engine) as session:
-        appt = session.get(Appointment, appointment_id)
-        if not appt:
+        try:
+            appointment_manager.cancel_appointment(session, appointment_id)
+            return f"Agendamento {appointment_id} cancelado com sucesso."
+        except KeyError:
             return "Agendamento não encontrado."
-            
-        if normalize_status(appt.status, default="scheduled") == "cancelled":
-            return "Este agendamento já está cancelado."
-            
-        appt.status = "cancelled"
-        session.add(appt)
-        session.commit()
-        
-        return f"Agendamento {appointment_id} cancelado com sucesso."
 
 def _reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
     try:
@@ -253,45 +180,24 @@ def _reschedule_appointment(appointment_id: int, new_datetime_str: str) -> str:
         return "Formato inválido. Use AAAA-MM-DD HH:MM."
 
     with Session(engine) as session:
-        appt = session.get(Appointment, appointment_id)
-        if not appt:
+        try:
+            appt = appointment_manager.update_appointment(
+                session,
+                appointment_id=appointment_id,
+                dt=new_dt,
+                status="rescheduled"
+            )
+            # Reset notifications when rescheduling
+            appt.notified_24h = False
+            appt.notified_3h = False
+            session.add(appt)
+            session.commit()
+            return f"Agendamento {appointment_id} reagendado para {new_datetime_str} com sucesso."
+        except KeyError:
             return "Agendamento não encontrado para reagendar."
-            
-        if normalize_status(appt.status, default="scheduled") == "cancelled":
-            return "Não é possível reagendar um agendamento cancelado. Por favor, solicite um novo agendamento."
+        except ValueError as e:
+            return str(e)
 
-        info = get_service_info(appt.service)
-        professional = appt.professional
-        duration = info["duration"]
-        new_end = new_dt + timedelta(minutes=duration)
-        
-        day_start = new_dt.replace(hour=0, minute=0)
-        day_end = new_dt.replace(hour=23, minute=59)
-        
-        existing_collisions = session.exec(select(Appointment).where(
-            Appointment.datetime >= day_start,
-            Appointment.datetime <= day_end,
-            Appointment.status != "cancelled",
-            Appointment.professional == professional,
-            Appointment.id != appointment_id
-        )).all()
-        
-        for coll in existing_collisions:
-            coll_info = get_service_info(coll.service)
-            coll_end = coll.datetime + timedelta(minutes=coll_info["duration"])
-            
-            if new_dt < coll_end and new_end > coll.datetime:
-                return f"Conflito de horário: Dr(a). {professional} já possui um agendamento das {coll.datetime.strftime('%H:%M')} às {coll_end.strftime('%H:%M')}."
-
-        appt.datetime = new_dt
-        appt.status = "rescheduled"
-        appt.notified_24h = False
-        appt.notified_3h = False
-        session.add(appt)
-        session.commit()
-        session.refresh(appt)
-        
-        return f"Agendamento {appointment_id} reagendado para {new_datetime_str} com sucesso."
 
 def _get_available_services() -> str:
     services_list = []

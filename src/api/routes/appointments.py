@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from datetime import datetime
+from typing import Optional
 
 from src.core.security import verify_token
 from src.infrastructure.database import engine
@@ -9,13 +10,12 @@ from src.domain.schemas import AppointmentCreate, AppointmentUpdate
 from src.application.services.appointment_status import (
     build_status_legend_description,
     get_status_metadata,
-    normalize_status,
 )
 from src.application.services.patient_identity import (
     get_contact_phone,
-    resolve_patient_for_contact,
 )
 from src.application.services.service_catalog import canonicalize_service_name
+from src.application.services import appointment_manager
 
 router = APIRouter(prefix="/api/appointments", tags=["Appointments"], dependencies=[Depends(verify_token)])
 
@@ -53,7 +53,7 @@ async def get_appointments(include_cancelled: bool = False):
         return {"appointments": appointments}
 
 @router.post("")
-async def create_appointment(data: AppointmentCreate):
+async def create_appointment(data: AppointmentCreate, force: bool = False):
     """
     Manually create an appointment via Dashboard.
     """
@@ -63,83 +63,64 @@ async def create_appointment(data: AppointmentCreate):
         raise HTTPException(status_code=400, detail="Invalid datetime format")
 
     with Session(engine) as session:
-        patient = resolve_patient_for_contact(
-            session,
-            name=data.patient_name,
-            phone=data.patient_phone,
-            responsible_name=data.responsible_name,
-        )
-            
-        appointment = Appointment(
-            patient_id=patient.id,
-            datetime=dt,
-            service=canonicalize_service_name(data.service),
-            professional=data.professional,
-            status=normalize_status(data.status, default="scheduled")
-        )
-        session.add(appointment)
-        session.commit()
-        session.refresh(appointment)
-        
-        return {"status": "success", "id": appointment.id}
+        try:
+            appt = appointment_manager.create_appointment(
+                session,
+                patient_name=data.patient_name,
+                patient_phone=data.patient_phone,
+                dt=dt,
+                service_name=data.service,
+                professional=data.professional,
+                status=data.status or "scheduled",
+                responsible_name=data.responsible_name,
+                force=force
+            )
+            return {"status": "success", "id": appt.id}
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) # Conflict
 
 @router.put("/{appointment_id}")
-async def update_appointment(appointment_id: int, data: AppointmentUpdate):
+async def update_appointment(appointment_id: int, data: AppointmentUpdate, force: bool = False):
     """
     Update an existing appointment.
     """
+    try:
+        dt = datetime.fromisoformat(data.datetime) if data.datetime else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid datetime format")
+
     with Session(engine) as session:
-        appointment = session.get(Appointment, appointment_id)
-        if not appointment:
+        try:
+            appt = appointment_manager.update_appointment(
+                session,
+                appointment_id=appointment_id,
+                dt=dt,
+                service_name=data.service,
+                professional=data.professional,
+                status=data.status,
+                patient_name=data.patient_name,
+                patient_phone=data.patient_phone,
+                responsible_name=data.responsible_name,
+                force=force
+            )
+            return {"status": "success", "id": appt.id}
+        except KeyError:
             raise HTTPException(status_code=404, detail="Appointment not found")
-
-        if data.datetime:
-            try:
-                appointment.datetime = datetime.fromisoformat(data.datetime)
-            except ValueError:
-               raise HTTPException(status_code=400, detail="Invalid datetime format")
-        
-        if data.status:
-            appointment.status = normalize_status(data.status, default=appointment.status)
-
-        if data.service:
-            appointment.service = canonicalize_service_name(data.service)
-
-        if data.professional:
-            appointment.professional = data.professional
-
-        if data.patient_name or data.patient_phone or data.responsible_name is not None:
-            current_patient = session.get(Patient, appointment.patient_id)
-            if current_patient:
-                resolved_patient = resolve_patient_for_contact(
-                    session,
-                    name=data.patient_name or current_patient.name,
-                    phone=data.patient_phone or get_contact_phone(current_patient),
-                    responsible_name=(
-                        data.responsible_name
-                        if data.responsible_name is not None
-                        else current_patient.responsible_name
-                    ),
-                )
-                appointment.patient_id = resolved_patient.id
-
-        session.add(appointment)
-        session.commit()
-        session.refresh(appointment)
-        
-        return {"status": "success", "id": appointment.id}
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) # Conflict
 
 @router.delete("/{appointment_id}")
 async def delete_appointment(appointment_id: int):
     """
-    Delete an appointment.
+    Delete an appointment (hard delete).
     """
     with Session(engine) as session:
-        appointment = session.get(Appointment, appointment_id)
-        if not appointment:
+        appt = session.get(Appointment, appointment_id)
+        if not appt:
             raise HTTPException(status_code=404, detail="Appointment not found")
             
-        session.delete(appointment)
+        session.delete(appt)
         session.commit()
         
         return {"status": "success"}
+
