@@ -27,13 +27,14 @@ def test_webhook_latency_and_debounce():
         security.WEBHOOK_VALIDATE_SIGNATURE = False
         config.ANTISPAM_CONFIG["max_messages_per_minute"] = 9999
         config.ANTISPAM_CONFIG["cooldown_seconds"] = 0
-        webhooks._phone_out_of_scope_attempts.clear()
+        from src.application.services import message_handler
+        message_handler._phone_out_of_scope_attempts.clear()
         webhooks._phone_timestamps.clear()
         webhooks._seen_messages.clear()
-        webhooks._phone_handoff_until.clear()
+        message_handler._phone_handoff_until.clear()
 
-        with patch("src.api.routes.webhooks.Runner.run", new_callable=AsyncMock) as mock_runner:
-            with patch("src.api.routes.webhooks.send_message", new_callable=AsyncMock) as mock_send:
+        with patch("src.application.services.message_handler.Runner.run", new_callable=AsyncMock) as mock_runner:
+            with patch("src.application.services.message_handler.send_message", new_callable=AsyncMock) as mock_send:
                 mock_runner.return_value = _FakeRunnerResult()
                 mock_send.return_value = {"success": True, "status_code": 200, "error_message": None}
 

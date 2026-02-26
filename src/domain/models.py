@@ -1,6 +1,16 @@
 from typing import Optional
 from datetime import datetime
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Column, JSON
+
+class ClinicSettings(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(default="Espaço Interativo Reabilitare")
+    assistant_name: str = Field(default="Cora")
+    hours_description: str = Field(default="")
+    schedules: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    services: list = Field(default_factory=list, sa_column=Column(JSON))
+    cancellation_policy: str = Field(default="Cancelamentos devem ser feitos com 24h de antecedência.")
+    communication_flow: str = Field(default="Enviamos confirmação 1 dia antes e lembrete 3h antes da consulta.")
 
 class Patient(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

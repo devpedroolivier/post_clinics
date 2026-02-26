@@ -8,7 +8,7 @@ from src.domain.models import Patient, Appointment, NotificationLog
 
 # Database Setup
 DATABASE_FILE = os.path.join(DATA_DIR, "post_clinics.db")
-DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
+DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATABASE_FILE}")
 
 engine = create_engine(DATABASE_URL, echo=False)
 
@@ -18,6 +18,9 @@ def _get_columns(cursor, table_name: str) -> list[str]:
 
 
 def _apply_lightweight_migrations():
+    if "sqlite" not in DATABASE_URL:
+        return  # Only run these specific manual migrations for SQLite
+        
     if not os.path.exists(DATABASE_FILE):
         return
 

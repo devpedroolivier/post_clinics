@@ -1,6 +1,24 @@
-version: '3'
+version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: postclinics_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-clinic_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clinic_password}
+      POSTGRES_DB: ${POSTGRES_DB:-postclinics}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-clinic_user} -d $${POSTGRES_DB:-postclinics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     container_name: postclinics_prod
@@ -13,8 +31,12 @@ services:
       - .env
     environment:
       - DATA_DIR=/app/data
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-clinic_user}:${POSTGRES_PASSWORD:-clinic_password}@db:5432/${POSTGRES_DB:-postclinics}
     networks:
       - app-network
+    depends_on:
+      db:
+        condition: service_healthy
 
   scheduler:
     build: .
@@ -28,11 +50,18 @@ services:
     environment:
       - DATA_DIR=/app/data
       - SCHEDULER_INTERVAL=600
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-clinic_user}:${POSTGRES_PASSWORD:-clinic_password}@db:5432/${POSTGRES_DB:-postclinics}
     networks:
       - app-network
     depends_on:
-      - app
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  postgres_data:
